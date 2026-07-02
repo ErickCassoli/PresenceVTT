@@ -23,7 +23,19 @@ npm install
 npm start            # abre o app Electron (mestre + projeção)
 ```
 
+Antes de abrir um PR, rode as mesmas checagens que o CI roda:
+
+```bash
+npm run lint         # ESLint (pega bugs reais, não estilo)
+npm test             # node --test — parse + validações estruturais
+```
+
 Para gerar o instalador/portátil do Windows: `npm run build` (saída em `dist/`).
+
+> **CI/CD:** toda PR passa pelo workflow **CI** (lint + testes). O **CD** roda só na
+> `main` e, quando a `version` do `package.json` aponta pra uma release que ainda não
+> existe, builda os instaladores e publica a Release. Ou seja: **subiu um bump de versão
+> pra `main` → sai release nova** automaticamente.
 
 ## Arquitetura (resumo)
 

@@ -1,24 +1,37 @@
 name: CI
 
-# Validates every pull request and every push to a non-main branch, so only
-# checked code reaches main. No build step (the app has none) — just syntax and
-# structural validation of the vanilla-JS modules + index.html.
+# Continuous Integration — the gate for code coming INTO the project.
+# Runs lint + tests + structural validation on every pull request and on every
+# push to a non-default branch. It does NOT build or release anything (that's
+# CD, which runs only on main). Nothing here touches the outside world.
 on:
   pull_request:
   push:
     branches-ignore: [main, master]
 
 jobs:
-  validate:
+  lint:
+    name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Syntax-check all JS modules
-        run: |
-          set -e
-          for f in *.js; do node --check "$f" && echo "ok  $f"; done
-      - name: Validate index.html + build.files
-        run: node .github/scripts/validate.js
+      # ESLint is run via npx (not a project dependency) to keep the app's
+      # dependency tree lean — it's a vanilla-JS, no-bundler project.
+      - name: Lint (ESLint)
+        run: npx --yes eslint@9 .
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # node's built-in test runner — zero dependencies. Covers parse checks,
+      # <style> balance, and build.files packaging (see test/structure.test.js).
+      - name: Tests & structural validation
+        run: node --test

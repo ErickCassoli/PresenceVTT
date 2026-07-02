@@ -1,0 +1,75 @@
+name: CD
+
+# Continuous Deployment — the gate for code going OUT to users.
+# Runs ONLY on the default branch. When the version in package.json names a
+# release that doesn't exist yet, it builds the installers on all three OSes and
+# publishes them to a GitHub Release. Bump package.json's `version`, land it on
+# main, and the deploy happens automatically. No version bump → no-op.
+on:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: write # create the tag + release and upload installers
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Gate: only deploy when package.json points at an unreleased version.
+  check-version:
+    name: check version
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.v.outputs.should_release }}
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v$VERSION already exists — nothing to deploy."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New version v$VERSION — building and releasing."
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: build & release
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    strategy:
+      fail-fast: false # if one OS fails, the others still ship
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Build the installer
+        run: npx electron-builder --publish never
+        env:
+          # Unsigned by choice (no paid certs) — stop electron-builder hunting
+          # for a signing identity, otherwise the mac build fails.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - name: Publish to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: v${{ needs.check-version.outputs.version }}
+          # Each OS uploads only its own artifact; the other globs match nothing
+          # on that runner, which is fine.
+          files: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
