@@ -33,6 +33,37 @@ Mapas animados (MP4/WebM), grid quadrado ou hex ajustável, e várias cenas com 
 
 > **Dica:** aperte `?` na janela do mestre pra ver todos os atalhos.
 
+### Tokens pra trackear as minis
+Marque no mapa onde cada mini está: tokens-âncora com **cor, nome e atalho** pra alinhar no
+grid, **condições** (ícones que os players enxergam) e **bandas de range** — tudo espelhado na
+projeção. É rastreio visual, não uma ficha.
+
+### Áreas (AoE)
+Burst, cone, linha e emanação medidos em **células**: arraste pra criar, e depois **mova e
+redimensione**. Puramente visual, aparece na mesa.
+
+### Marcações: ping, traçado, risco
+Chame atenção com um **ping**, deixe um **traçado** que some sozinho, ou um **risco** que fica
+até apagar. Em cima do mapa, sincronizado com a projeção.
+
+### Aba de Regras (só-mestre)
+Referência **buscável** (condições, ranges, tabelas de dano, GM moves) + **trackers manuais**:
+Fear, contagens regressivas e **vida de adversários**. Nada rola dado nem calcula — é
+apresentador, **não VTT**.
+
+### Sistemas de jogo trocáveis e editáveis
+Vem com **Daggerheart, D&D 5e e Ordem Paranormal**. Troque num clique (muda condições, ranges,
+referência e o estilo dos trackers) e **crie o seu dentro do app**, sem programar. Exporte e
+importe sistemas como **JSON** pra compartilhar com a comunidade.
+
+### Soundboard
+Pads de **ambiente** (loop com crossfade) e **one-shots** por cima (porta, espada, trovão),
+com atalhos, volume por pad, **botão de pânico** e opção de tocar o som **pela tela da mesa**.
+
+### Perfil portátil
+Exporte **cenas + sons + sistemas** num único arquivo `.zip` e leve sua mesa montada pra
+outro PC ou compartilhe com outro mestre.
+
 ## Rodando do código-fonte
 
 Sem build step — é JavaScript puro num shell Electron.
@@ -93,7 +124,17 @@ Curioso sobre como o fog é renderizado ou como as duas janelas sincronizam? Vej
 
 ## Contribuindo
 
-Quer ajudar — inclusive **criar e compartilhar sistemas** (Daggerheart, D&D, Ordem, Tormenta…), sem programar? Veja o **[CONTRIBUTING.md](CONTRIBUTING.md)**. Regra de ouro: é um **apresentador**, **não um VTT** — trackers e referência são manuais, sem automação de regras.
+Contribuições são muito bem-vindas, de três jeitos:
+
+- **Pull Request direto no repo** — correções, features e melhorias de UX. Toda PR passa por
+  **CI de validação** antes de entrar na `main`. Veja o **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+- **Criar e compartilhar sistemas** (Daggerheart, D&D, Ordem, Tormenta…) **sem programar** —
+  monte no editor do app, exporte o JSON e compartilhe, ou mande num PR pra `systems.js`.
+- **Fork pra versões mais profundas** — quer mods mais complexos, automação ou um rumo
+  diferente? Faça um **fork** e leve o projeto pra onde quiser (é MIT).
+
+Regra de ouro do repo principal: é um **apresentador**, **não um VTT** — trackers e referência
+são **manuais**, sem automação de regras. Ideias que cruzam essa linha combinam melhor num fork.
 
 ## Licença
 

@@ -1,0 +1,24 @@
+name: CI
+
+# Validates every pull request and every push to a non-main branch, so only
+# checked code reaches main. No build step (the app has none) — just syntax and
+# structural validation of the vanilla-JS modules + index.html.
+on:
+  pull_request:
+  push:
+    branches-ignore: [main, master]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Syntax-check all JS modules
+        run: |
+          set -e
+          for f in *.js; do node --check "$f" && echo "ok  $f"; done
+      - name: Validate index.html + build.files
+        run: node .github/scripts/validate.js
