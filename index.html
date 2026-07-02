@@ -1,0 +1,4196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>presenceVTT</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+  }
+  body {
+    background: #1a1a1a;
+    color: #e0e0e0;
+    font-family: system-ui, -apple-system, sans-serif;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+    position: relative;
+  }
+
+  /* ===== FLOATING PANELS ===== */
+  /* presenceVTT design tokens — tweak the whole theme from here. */
+  :root {
+    --ui-zoom:   1.2;
+    --bg:        #14161b; /* charcoal — app background */
+    --surface:   #1c1f27; /* panels / toolbar */
+    --surface-2: #262a34; /* hover / active surface */
+    --border:    #2f3540;
+    --text:      #e7e9ee;
+    --muted:     #9aa3b2;
+    --accent:    #c8a24a; /* arcane gold — primary / focus / live */
+    --accent-2:  #7c5cff; /* arcane purple — occasional secondary */
+    --on-accent: #1a1407; /* text on a gold fill */
+    --radius:    12px;
+  }
+
+  .glass-panel {
+    background: linear-gradient(155deg, rgba(26, 16, 46, 0.93) 0%, rgba(11, 9, 22, 0.95) 100%);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(150, 100, 255, 0.18);
+    border-radius: 16px;
+    box-shadow:
+      0 16px 48px rgba(0, 0, 0, 0.7),
+      0 0 0 1px rgba(120, 80, 220, 0.06),
+      inset 0 1px 0 rgba(200, 160, 255, 0.07);
+  }
+
+  /* RIGHT SIDEBAR — same zoom-fix pattern as bottom toolbar:
+     no-zoom anchor handles fixed positioning, zoom lives on inner panel */
+  #sidebar-right-anchor {
+    position: fixed;
+    left: 0; right: 0; top: 0; bottom: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: 12px 12px 0 0;
+    pointer-events: none;
+    gap: 6px;
+  }
+  #sidebar-right {
+    zoom: var(--ui-zoom, 1.2);
+    pointer-events: all;
+    width: 176px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 8px 6px;
+    max-height: calc((100vh - 90px) / var(--ui-zoom, 1.2));
+    overflow-y: auto;
+    overflow-x: visible;
+  }
+  #sidebar-right::-webkit-scrollbar { width: 0; }
+
+  #sidebar-right button {
+    width: 100%;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px 10px;
+    border-radius: 9px;
+    border: none;
+    background: transparent;
+    color: #b8b0d0;
+    cursor: pointer;
+    text-align: left;
+    white-space: nowrap;
+    transition: background 0.14s, color 0.14s, box-shadow 0.14s;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  #sidebar-right button:hover {
+    background: rgba(120, 72, 220, 0.2);
+    color: #ddd4f8;
+  }
+  #sidebar-right button.active {
+    background: linear-gradient(135deg, #3d6ab0 0%, #6a38aa 100%);
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(90, 50, 190, 0.45), inset 0 1px 0 rgba(255,255,255,0.13);
+  }
+
+  /* Section header row: icon + label + chevron */
+  .rp-hdr {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    justify-content: flex-start !important;
+  }
+  .rp-hdr .rp-ico { flex-shrink: 0; opacity: 0.65; }
+  .rp-hdr .rp-lbl { flex: 1; }
+  .rp-hdr .chevron { margin-left: auto; }
+
+  /* Scenes button accent */
+  #btn-scenes {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 8px 10px;
+    border-radius: 9px;
+    border: 1px solid rgba(130, 80, 240, 0.28);
+    background: rgba(60, 30, 120, 0.25);
+    color: #c8c0e8;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.14s, color 0.14s;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  #btn-scenes:hover { background: rgba(100, 55, 190, 0.35); color: #e0d8ff; }
+
+  /* Player section inner buttons — dimmer for secondary actions */
+  #section-player .section-body button { color: #a098c8; }
+  #section-player .section-body button:hover { color: #ddd4f8; }
+
+  .panel-sep {
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(130, 80, 240, 0.45) 50%, transparent 100%);
+    margin: 7px 2px;
+    flex-shrink: 0;
+  }
+  .btn-group { display: flex; flex-direction: column; gap: 2px; }
+
+  /* Reveal / Shroud — distinct active gradients */
+  .reveal-btn.active {
+    background: linear-gradient(135deg, #1a6a40 0%, #27a85e 100%) !important;
+    color: #fff !important;
+    box-shadow: 0 2px 14px rgba(30, 160, 80, 0.5), inset 0 1px 0 rgba(255,255,255,0.12) !important;
+  }
+  .shroud-btn.active {
+    background: linear-gradient(135deg, #38155a 0%, #7830aa 100%) !important;
+    color: #fff !important;
+    box-shadow: 0 2px 14px rgba(100, 30, 170, 0.55), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+  }
+
+  /* Collapsible sections */
+  .section-hdr {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.14s !important;
+  }
+  .section-body {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+    padding-right: 10px; /* room for range thumb that overflows track */
+  }
+  .section.open .section-body { max-height: 420px; opacity: 1; }
+  .chevron {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    font-size: 10px;
+    opacity: 0.4;
+    margin-left: 4px;
+  }
+  .section.open .chevron { transform: rotate(180deg); opacity: 0.7; }
+  .section-body button { margin-top: 2px; }
+
+  /* Grid section header as div — mimics the button hover behaviour */
+  #section-grid-hdr {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: background 0.14s, color 0.14s;
+    color: #b8b0d0;
+    font-size: 12px;
+    font-weight: 500;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  #section-grid-hdr:hover { background: rgba(120, 72, 220, 0.2); color: #ddd4f8; }
+
+  /* Section header labels — bigger and bolder */
+  .section-hdr .rp-lbl,
+  #section-grid-hdr .rp-lbl { font-size: 13px; font-weight: 600; color: #c0b8e0; }
+
+  /* Mini pill toggle (grid on/off inside header) */
+  .mini-toggle {
+    width: 30px; height: 16px;
+    border-radius: 9px;
+    border: 1px solid rgba(130, 80, 240, 0.3);
+    background: rgba(40, 30, 80, 0.7);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: background 0.18s, border-color 0.18s;
+    padding: 0;
+    outline: none;
+  }
+  .mini-toggle::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: rgba(130, 80, 240, 0.4);
+    top: 1px; left: 1px;
+    transition: transform 0.18s, background 0.18s;
+  }
+  .mini-toggle.active { background: rgba(40, 140, 80, 0.35); border-color: rgba(60, 200, 100, 0.55); }
+  .mini-toggle.active::after { transform: translateX(14px); background: #40d070; }
+  /* Override the general #sidebar-right button sizing for the mini toggle */
+  #sidebar-right .mini-toggle {
+    width: 30px !important;
+    padding: 0 !important;
+    text-align: center !important;
+    font-size: 0 !important;
+    white-space: normal !important;
+    background: rgba(40, 30, 80, 0.7) !important;
+  }
+  #sidebar-right .mini-toggle.active { background: rgba(40, 140, 80, 0.35) !important; }
+
+  /* XY axis tag shown to the right of offset slider value */
+  .slider-xy-tag {
+    font-size: 8px; font-weight: 800;
+    color: rgba(150, 100, 255, 0.4);
+    min-width: 8px; flex-shrink: 0;
+  }
+
+  /* Snap toggle panel (above toolbar, like brush panel) */
+  #panel-snap-bottom {
+    zoom: var(--ui-zoom, 1.2);
+    pointer-events: all;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 18px;
+  }
+  #panel-snap-bottom .snap-lbl {
+    font-size: 10px; font-weight: 700;
+    color: #7868a8; white-space: nowrap;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  #panel-snap-bottom .snap-toggle {
+    width: 30px; height: 16px;
+    border-radius: 9px;
+    border: 1px solid rgba(130, 80, 240, 0.3);
+    background: rgba(40, 30, 80, 0.7);
+    cursor: pointer; position: relative; flex-shrink: 0;
+    transition: background 0.18s, border-color 0.18s;
+    padding: 0; outline: none;
+  }
+  #panel-snap-bottom .snap-toggle::after {
+    content: '';
+    position: absolute;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: rgba(130, 80, 240, 0.4);
+    top: 1px; left: 1px;
+    transition: transform 0.18s, background 0.18s;
+  }
+  #panel-snap-bottom .snap-toggle.active { background: rgba(40, 140, 80, 0.35); border-color: rgba(60, 200, 100, 0.55); }
+  #panel-snap-bottom .snap-toggle.active::after { transform: translateX(14px); background: #40d070; }
+
+  /* Ruler panel (PresenceVTT) — same layout as the snap panel; gold toggle for "share". */
+  #panel-ruler-bottom {
+    zoom: var(--ui-zoom, 1.2);
+    pointer-events: all;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 18px;
+  }
+  #panel-ruler-bottom .ruler-lbl {
+    font-size: 10px; font-weight: 700;
+    color: #7868a8; white-space: nowrap;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  #panel-ruler-bottom .snap-toggle {
+    width: 30px; height: 16px; border-radius: 9px;
+    border: 1px solid rgba(130, 80, 240, 0.3);
+    background: rgba(40, 30, 80, 0.7);
+    cursor: pointer; position: relative; flex-shrink: 0;
+    transition: background 0.18s, border-color 0.18s; padding: 0; outline: none;
+  }
+  #panel-ruler-bottom .snap-toggle::after {
+    content: ''; position: absolute;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: rgba(130, 80, 240, 0.4);
+    top: 1px; left: 1px;
+    transition: transform 0.18s, background 0.18s;
+  }
+  #panel-ruler-bottom .snap-toggle.active { background: rgba(200, 150, 40, 0.4); border-color: rgba(240, 200, 80, 0.6); }
+  #panel-ruler-bottom .snap-toggle.active::after { transform: translateX(14px); background: #f0c850; }
+  #panel-ruler-bottom .ruler-share-lbl { font-size: 11px; color: #b0a8d0; white-space: nowrap; }
+  #panel-ruler-bottom .ruler-clear-btn {
+    font-size: 11px; color: #c0b8e0; cursor: pointer; white-space: nowrap;
+    background: rgba(60, 40, 110, 0.35);
+    border: 1px solid rgba(130, 80, 240, 0.3);
+    border-radius: 5px; padding: 3px 9px;
+  }
+  #panel-ruler-bottom .ruler-clear-btn:hover { background: rgba(170, 40, 40, 0.4); border-color: rgba(220, 80, 80, 0.5); }
+
+  /* Token popup (PresenceVTT) — floating card anchored to the SELECTED token. */
+  #panel-token-bottom {
+    position: fixed;
+    z-index: 220;
+    pointer-events: all;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    width: 224px;
+    padding: 10px 12px;
+  }
+  #panel-token-bottom .tp-row { display: flex; align-items: center; gap: 8px; }
+  #panel-token-bottom .tp-lbl { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  #panel-token-bottom .tp-sec { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px; }
+  #panel-token-bottom #token-size-val { font-size: 11px; color: var(--muted); min-width: 26px; text-align: center; }
+  #panel-token-bottom input[type="range"] { flex: 1; cursor: pointer; accent-color: var(--accent); }
+  #panel-token-bottom #token-name {
+    flex: 1; min-width: 0; font-size: 12px; color: var(--text);
+    background: rgba(40, 30, 70, 0.6); border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 7px; outline: none;
+  }
+  #panel-token-bottom .tp-row { min-width: 0; }
+  #panel-token-bottom #token-name:focus { border-color: var(--accent); }
+  #panel-token-bottom input[type="color"] { width: 24px; height: 24px; padding: 0; border: none; background: none; cursor: pointer; border-radius: 4px; flex-shrink: 0; }
+  #panel-token-bottom .tp-del {
+    background: rgba(60, 40, 110, 0.35); border: 1px solid var(--border); color: var(--text);
+    border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 13px; flex-shrink: 0;
+  }
+  #panel-token-bottom .tp-del:hover { background: rgba(170, 40, 40, 0.4); border-color: rgba(220, 80, 80, 0.5); }
+  .tp-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+  .tp-cond {
+    display: flex; align-items: center; gap: 5px; line-height: 1;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+    border-radius: 6px; padding: 3px 8px 3px 5px; cursor: pointer; font-size: 11px;
+  }
+  .tp-cond .tp-glyph { font-size: 15px; line-height: 1; }
+  .tp-cond.active { border-color: var(--cond-color); box-shadow: inset 0 0 0 1px var(--cond-color), 0 0 7px -2px var(--cond-color); }
+  .tp-band {
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--muted);
+    border-radius: 6px; padding: 3px 7px; cursor: pointer; font-size: 11px; line-height: 1;
+  }
+  .tp-band.active { border-color: var(--band-color); color: var(--text); box-shadow: inset 0 0 0 1px var(--band-color); }
+
+  /* Area panel (PresenceVTT) — like the ruler panel. */
+  #panel-aoe-bottom { zoom: var(--ui-zoom, 1.2); pointer-events: all; display: none; align-items: center; gap: 8px; padding: 8px 16px; }
+  #panel-aoe-bottom .ruler-lbl { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  #panel-aoe-bottom .ruler-share-lbl { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .aoe-shape-btn { font-size: 11px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; cursor: pointer; white-space: nowrap; }
+  .aoe-shape-btn.active { border-color: var(--accent); color: var(--text); box-shadow: inset 0 0 0 1px var(--accent); }
+  .aoe-color { width: 26px; height: 22px; padding: 0; border: 1px solid var(--border); border-radius: 5px; background: var(--surface-2); cursor: pointer; }
+  #panel-aoe-bottom .ruler-clear-btn { font-size: 11px; color: var(--text); background: rgba(60,40,110,0.35); border: 1px solid var(--border); border-radius: 5px; padding: 3px 9px; cursor: pointer; white-space: nowrap; }
+  #panel-aoe-bottom .ruler-clear-btn:hover { background: rgba(170,40,40,0.4); border-color: rgba(220,80,80,0.5); }
+
+  /* Markings panel (PresenceVTT) — like the area panel. */
+  #panel-draw-bottom { zoom: var(--ui-zoom, 1.2); pointer-events: all; display: none; align-items: center; gap: 8px; padding: 8px 16px; }
+  #panel-draw-bottom .ruler-lbl { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .draw-tool-btn { font-size: 11px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; cursor: pointer; white-space: nowrap; }
+  .draw-tool-btn.active { border-color: var(--accent); color: var(--text); box-shadow: inset 0 0 0 1px var(--accent); }
+  #panel-draw-bottom .ruler-clear-btn { font-size: 11px; color: var(--text); background: rgba(60,40,110,0.35); border: 1px solid var(--border); border-radius: 5px; padding: 3px 9px; cursor: pointer; white-space: nowrap; }
+  #panel-draw-bottom .ruler-clear-btn:hover { background: rgba(170,40,40,0.4); border-color: rgba(220,80,80,0.5); }
+
+  /* Grid overhaul controls */
+  .grid-num {
+    width: 36px; font-size: 11px;
+    background: rgba(40,30,70,0.6);
+    border: 1px solid rgba(130,80,240,0.25); border-radius: 4px;
+    color: #c8c0e8; padding: 1px 3px; text-align: right;
+    -moz-appearance: textfield; flex-shrink: 0;
+  }
+  .grid-num::-webkit-inner-spin-button,
+  .grid-num::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .grid-offset-lbl { font-size: 10px; color: #6858b0; min-width: 12px; flex-shrink: 0; }
+  .grid-offset-val { font-size: 11px; color: #9080c0; min-width: 22px; text-align: right; flex-shrink: 0; }
+  .grid-mode-btn { flex: 1; padding: 6px 2px !important; display: flex !important; align-items: center; justify-content: center; font-size: 10px; }
+  .grid-mode-btn.active {
+    background: linear-gradient(135deg, #3d6ab0 0%, #6a38aa 100%) !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(90,50,190,0.4) !important;
+  }
+  #grid-color {
+    width: 22px; height: 22px; padding: 0; border: none;
+    background: none; cursor: pointer; border-radius: 4px; flex-shrink: 0;
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 2px;
+  }
+  .slider-row input[type="range"] { flex: 1; min-width: 0; cursor: pointer; accent-color: #8060e0; }
+  .section-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+  }
+  .section-row input[type="range"] { flex: 1; min-width: 0; cursor: pointer; accent-color: #8060e0; }
+  .section-row button {
+    flex: none !important;
+    width: auto !important;
+    padding: 5px 8px !important;
+    font-size: 12px !important;
+  }
+
+  /* TOP TOOLBAR — replaced by #tools-wrapper at bottom */
+  #toolbar-top { display: none !important; }
+
+  /* ===== BOTTOM TOOLBAR ===== */
+  /* Outer wrapper: full-width fixed row, centers children, no zoom (avoids
+     hit-area mismatch that occurs when zoom + transform: translateX(-50%)
+     are combined on a fixed element). */
+  #tools-wrapper {
+    position: fixed;
+    bottom: 16px;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none; /* pass-through; children opt back in */
+  }
+
+  #toolbar-bottom {
+    zoom: var(--ui-zoom, 1.2);
+    pointer-events: all;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+  }
+
+  .tool-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: #9080c8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.14s, color 0.14s, box-shadow 0.14s;
+    padding: 0;
+    flex-shrink: 0;
+  }
+  .tool-btn:hover {
+    background: rgba(120, 72, 220, 0.22);
+    color: #ddd4f8;
+  }
+  .tool-btn.active {
+    background: linear-gradient(135deg, #3d6ab0 0%, #6a38aa 100%);
+    color: #fff;
+    box-shadow: 0 3px 14px rgba(90, 50, 190, 0.5), inset 0 1px 0 rgba(255,255,255,0.13);
+  }
+
+  /* Reveal/Shroud toggle pair */
+  .tool-reveal-shroud {
+    display: flex;
+    gap: 2px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    padding: 2px;
+    border: 1px solid rgba(130,80,240,0.12);
+  }
+
+  .toolbar-divider {
+    width: 1px;
+    height: 26px;
+    background: rgba(140, 90, 255, 0.25);
+    margin: 0 4px;
+    flex-shrink: 0;
+  }
+
+  /* Brush size panel (floats above toolbar) */
+  #panel-brush-bottom {
+    zoom: var(--ui-zoom, 1.2);
+    pointer-events: all;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 18px;
+  }
+  #panel-brush-bottom label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #7868a8;
+    white-space: nowrap;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  #panel-brush-bottom input[type="range"] {
+    width: 120px;
+    cursor: pointer;
+    accent-color: #8060e0;
+  }
+  #panel-brush-bottom .brush-val {
+    font-size: 13px;
+    font-weight: 600;
+    color: #c8c0e8;
+    min-width: 28px;
+    text-align: center;
+  }
+
+  /* UI SCALE CONTROL — fixed independently so zoom feedback loop can't occur */
+  #ui-scale-row {
+    position: fixed;
+    left: 12px;
+    bottom: 16px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px 6px 8px;
+    border-radius: 10px;
+    background: rgba(18, 12, 32, 0.82);
+    border: 1px solid rgba(130, 80, 240, 0.22);
+  }
+  body.player-mode #ui-scale-row { display: none !important; }
+  #ui-scale-row span { font-size: 11px; color: #a090c0; white-space: nowrap; }
+  #ui-scale-row input[type="range"] { width: 80px; cursor: pointer; accent-color: #8060e0; }
+  #btn-legend {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1px solid rgba(140, 110, 240, 0.45);
+    background: rgba(80, 60, 160, 0.35);
+    color: #c0b8e8;
+    font-size: 12px; font-weight: 700;
+    cursor: pointer; padding: 0; flex-shrink: 0;
+    transition: background 0.14s, color 0.14s;
+    font-family: system-ui, sans-serif;
+    line-height: 1;
+  }
+  #btn-legend:hover { background: rgba(120, 80, 210, 0.55); color: #fff; }
+
+  /* BRUSH SIZE PANEL (bottom-left, context) */
+  #panel-brush {
+    position: fixed;
+    left: 12px;
+    bottom: 16px;
+    z-index: 100;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    zoom: var(--ui-zoom, 1.2);
+  }
+  #panel-brush label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #9080b8;
+    white-space: nowrap;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  #panel-brush input[type="range"] { width: 110px; cursor: pointer; accent-color: #8060e0; }
+  #brush-size-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #c8c0e8;
+    min-width: 28px;
+    text-align: center;
+  }
+
+  /* PLAYER PANEL (bottom-right) */
+  #panel-player {
+    position: fixed;
+    right: 12px;
+    bottom: 16px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 7px 10px;
+    zoom: var(--ui-zoom, 1.2);
+  }
+  #panel-player button {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px 11px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: #b8b0d0;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.14s, color 0.14s;
+    font-family: system-ui, -apple-system, sans-serif;
+    letter-spacing: 0.01em;
+  }
+  #panel-player button:hover { background: rgba(120, 72, 220, 0.2); color: #ddd4f8; }
+  #panel-player button.active {
+    background: linear-gradient(135deg, #3d6ab0 0%, #6a38aa 100%);
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(90, 50, 190, 0.4);
+  }
+  /* Player View and Send are secondary — dimmer than Sync/Auto/Fullscreen */
+  #btn-player, #btn-send { color: #7870a0; font-size: 11px; }
+  #btn-player:hover, #btn-send:hover { color: #b0a8d0; }
+
+  /* ===== CANVAS LAYERS ===== */
+  #canvas-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  #map-canvas, #fog-canvas, #grid-canvas, #token-canvas, #cursor-canvas {
+    position: absolute;
+    inset: 0;
+  }
+  #fog-canvas, #grid-canvas, #token-canvas, #cursor-canvas {
+    pointer-events: none;
+  }
+
+  /* ===== POLYGON CONTEXT PANEL ===== */
+  #panel-poly-ctx {
+    position: fixed;
+    z-index: 150;
+    padding: 7px 10px;
+    pointer-events: auto;
+    display: none;
+    zoom: var(--ui-zoom, 1.2);
+    width: 152px;
+    box-sizing: border-box;
+  }
+  .pctx-r1, .pctx-r2, .pctx-r3 { display: flex; align-items: center; gap: 4px; }
+  .pctx-r2 { margin-top: 6px; }
+  .pctx-r3 { margin-top: 4px; }
+  .pctx-gap { flex: 1; }
+  #panel-poly-ctx button {
+    background: rgba(60, 40, 110, 0.35);
+    border: 1px solid rgba(130, 80, 240, 0.2);
+    border-radius: 6px;
+    color: #9080c8;
+    font-size: 12px;
+    padding: 3px 7px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+    font-family: system-ui, sans-serif;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  #panel-poly-ctx button:hover { background: rgba(100, 60, 200, 0.3); color: #d0c8f8; border-color: rgba(160, 100, 255, 0.4); }
+  #poly-ctx-reveal.pctx-active { background: linear-gradient(135deg,#1a5a35,#1e8848); border-color: #27a85e; color: #a8f0c0; }
+  #poly-ctx-shroud.pctx-active { background: linear-gradient(135deg,#2a0d42,#5a1e88); border-color: #7830aa; color: #d0a8f8; }
+  #poly-ctx-delete { padding: 3px 6px; color: #c07070; border-color: rgba(200,80,80,0.25); }
+  #poly-ctx-delete:hover { background: rgba(180,40,40,0.3); color: #ff9898; border-color: rgba(220,80,80,0.5); }
+  #poly-ctx-rmode { padding: 3px 5px; font-size: 11px; }
+  #poly-ctx-rmode.pctx-vtx { background: rgba(80,50,180,0.4); color: #b0a0f0; border-color: rgba(150,100,240,0.4); }
+  .pctx-ico { font-size: 11px; color: #5a4888; flex-shrink: 0; }
+  #panel-poly-ctx input[type="range"] { flex: 1; min-width: 0; cursor: pointer; accent-color: #7050d0; }
+  #poly-ctx-radius-val { font-size: 11px; color: #9080c8; min-width: 20px; text-align: right; flex-shrink: 0; }
+  #poly-ctx-info { font-size: 10px; color: #5848a0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #poly-ctx-del-vertex { padding: 2px 5px; font-size: 10px; color: #c07070; border-color: rgba(200,80,80,0.25); }
+
+  /* ===== PLAYER MODE ===== */
+  /* The projection shows only map/fog/grid/ruler-when-shared/black — no DM chrome,
+     no tool cursor, and no DM-facing landing copy. */
+  body.player-mode #sidebar-right-anchor,
+  body.player-mode #tools-wrapper,
+  body.player-mode #panel-poly-ctx,
+  body.player-mode #landing { display: none !important; }
+  body.player-mode,
+  body.player-mode #canvas-container { cursor: none; }
+
+  /* Player mode state indicators on the button */
+  #btn-player.player-following { box-shadow: 0 0 0 1px #4d9; }
+  #btn-player.player-freelook  { box-shadow: 0 0 0 1px #fa0; }
+
+  /* ===== SHORTCUT LEGEND ===== */
+  #shortcut-legend {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 300;
+    padding: 20px 24px 18px;
+    min-width: 400px;
+    pointer-events: auto;
+  }
+  #shortcut-legend .legend-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #d0c8f0;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #shortcut-legend .legend-hint {
+    font-size: 11px;
+    color: #5850a0;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    text-transform: none;
+  }
+  #shortcut-legend .legend-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 28px;
+  }
+  #shortcut-legend .legend-cat {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #6858b0;
+    margin: 12px 0 5px;
+  }
+  #shortcut-legend .legend-cat:first-child { margin-top: 0; }
+  #shortcut-legend .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #a8a0c8;
+    padding: 2px 0;
+  }
+  #shortcut-legend kbd {
+    display: inline-block;
+    background: rgba(100, 80, 200, 0.22);
+    border: 1px solid rgba(140, 110, 240, 0.32);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    font-family: system-ui, sans-serif;
+    color: #c0b8e8;
+    min-width: 24px;
+    text-align: center;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  #legend-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 299;
+    background: rgba(0,0,0,0.35);
+  }
+
+  /* ===== SCENE MANAGER MODAL ===== */
+  #scene-manager-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 500;
+  }
+  /* Anchor: fixed, no zoom — avoids Chrome hit-area mismatch */
+  #scene-manager-anchor {
+    position: fixed; inset: 0;
+    z-index: 501;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  #scene-manager {
+    zoom: var(--ui-zoom, 1.2);
+    pointer-events: all;
+    position: static;
+    transform: none;
+    width: min(720px, 92vw);
+    max-height: calc(82vh / var(--ui-zoom, 1.2));
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+  }
+  #sm-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px 10px;
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(130,80,240,0.15);
+  }
+  #sm-header h3 { font-size: 15px; font-weight: 600; color: #d0c8f8; margin: 0; }
+  #btn-sm-close {
+    background: none !important;
+    border: none !important;
+    color: #6858b0 !important;
+    font-size: 20px !important;
+    cursor: pointer;
+    padding: 2px 7px !important;
+    border-radius: 6px !important;
+    line-height: 1;
+    transition: color 0.12s, background 0.12s !important;
+    width: auto !important;
+  }
+  #btn-sm-close:hover { color: #d0c8f8 !important; background: rgba(120,80,220,0.25) !important; }
+  #sm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+    padding: 14px 18px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  #sm-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #4a4070;
+    font-size: 13px;
+    padding: 40px 0;
+  }
+  #sm-footer {
+    padding: 10px 18px 14px;
+    flex-shrink: 0;
+    border-top: 1px solid rgba(130,80,240,0.15);
+  }
+  #btn-sm-new { width: 100%; font-size: 13px; }
+  .sm-card {
+    position: relative;
+    border-radius: 10px;
+    border: 2px solid rgba(130,80,240,0.2);
+    background: rgba(20,12,45,0.75);
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+  }
+  .sm-card:hover { border-color: rgba(140,90,255,0.5); transform: translateY(-2px); box-shadow: 0 6px 22px rgba(70,30,180,0.3); }
+  .sm-card.active { border-color: rgba(100,160,255,0.8); box-shadow: 0 0 0 1px rgba(100,160,255,0.35), 0 4px 16px rgba(60,120,240,0.2); }
+  .sm-card-thumb-wrap { position: relative; width: 100%; overflow: hidden; border-radius: 8px 8px 0 0; }
+  .sm-card-thumb { display: block; width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #111; pointer-events: none; }
+  .sm-card-footer { padding: 6px 8px 7px; }
+  .sm-card-name { font-size: 12px; color: #b0a8d0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sm-card.active .sm-card-name { color: #d8d0f8; }
+  .sm-card-name-input {
+    width: 100%;
+    font-size: 12px;
+    background: rgba(40,30,70,0.9);
+    border: 1px solid rgba(130,80,240,0.5);
+    border-radius: 4px;
+    color: #d8d0f8;
+    padding: 2px 4px;
+    box-sizing: border-box;
+    font-family: system-ui, sans-serif;
+    outline: none;
+  }
+  .sm-card-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(20, 10, 50, 0.58);
+    opacity: 0; transition: opacity 0.15s;
+    pointer-events: none;
+  }
+  .sm-card:hover .sm-card-overlay { opacity: 1; }
+  .sm-card.active .sm-card-overlay { background: rgba(30, 70, 180, 0.5); }
+  /* Load button inside overlay (pointer-events:none — card click handles load) */
+  .sm-card-load-btn {
+    background: rgba(255,255,255,0.12) !important;
+    border: 1px solid rgba(255,255,255,0.3) !important;
+    border-radius: 8px !important;
+    color: #fff !important; font-size: 11px !important; font-weight: 700 !important;
+    padding: 6px 18px !important; pointer-events: none;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    font-family: system-ui, sans-serif;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .sm-card-overlay-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; color: rgba(180, 210, 255, 0.9);
+  }
+  /* Delete — top-right */
+  .sm-card-del {
+    position: absolute; top: 5px; right: 5px;
+    background: rgba(0,0,0,0.55) !important;
+    border: none !important; border-radius: 6px !important;
+    color: #a0a0c0 !important; padding: 4px 5px !important;
+    cursor: pointer; opacity: 0;
+    transition: opacity 0.15s, background 0.12s !important;
+    width: auto !important; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sm-card:hover .sm-card-del { opacity: 1; }
+  .sm-card-del:hover { background: rgba(180,40,40,0.75) !important; color: #ff9898 !important; }
+  /* Rename — top-left */
+  .sm-card-rename {
+    position: absolute; top: 5px; left: 5px;
+    background: rgba(0,0,0,0.55) !important;
+    border: none !important; border-radius: 6px !important;
+    color: #a0a0c0 !important; padding: 4px 5px !important;
+    cursor: pointer; opacity: 0;
+    transition: opacity 0.15s, background 0.12s !important;
+    width: auto !important; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sm-card:hover .sm-card-rename { opacity: 1; }
+  .sm-card-rename:hover { background: rgba(60,40,160,0.75) !important; color: #d0c8f8 !important; }
+  /* Scenes — its own compact glass panel above the settings sidebar */
+  #panel-scenes {
+    zoom: var(--ui-zoom, 1.2);
+    pointer-events: all;
+    padding: 4px 6px;
+    width: 176px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+  }
+  body.player-mode #panel-scenes { display: none !important; }
+  #panel-scenes-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-top: 6px;
+  }
+  .psa-group { display: flex; flex-direction: column; gap: 3px; }
+  .psa-lbl { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding-left: 1px; }
+  .psa-row { display: flex; gap: 4px; }
+  .btn-backup {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 6px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--muted);
+    cursor: pointer;
+    transition: background 0.14s, color 0.14s, border-color 0.14s;
+    font-family: system-ui, -apple-system, sans-serif;
+    white-space: nowrap;
+  }
+  .btn-backup:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-profile { color: var(--text); border-color: rgba(200, 162, 74, 0.45); }
+  .btn-profile:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ===== BACKUP EXPORT MODAL ===== */
+  #backup-export-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 500;
+  }
+  #backup-export-anchor {
+    position: fixed; inset: 0;
+    z-index: 501;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  #backup-export-modal {
+    zoom: var(--ui-zoom, 1.2);
+    pointer-events: all;
+    position: static;
+    transform: none;
+    width: min(520px, 90vw);
+    max-height: calc(82vh / var(--ui-zoom, 1.2));
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+  }
+  #bem-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px 10px;
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(130,80,240,0.15);
+  }
+  #bem-header h3 { font-size: 15px; font-weight: 600; color: #d0c8f8; margin: 0; }
+  #btn-bem-close {
+    background: none !important; border: none !important;
+    color: #6858b0 !important; font-size: 20px !important;
+    cursor: pointer; padding: 2px 7px !important;
+    border-radius: 6px !important; line-height: 1;
+    transition: color 0.12s, background 0.12s !important; width: auto !important;
+  }
+  #btn-bem-close:hover { color: #d0c8f8 !important; background: rgba(120,80,220,0.25) !important; }
+  #bem-controls {
+    display: flex; gap: 6px;
+    padding: 8px 18px;
+    border-bottom: 1px solid rgba(130,80,240,0.1);
+    flex-shrink: 0;
+  }
+  #bem-controls button {
+    font-size: 11px; padding: 4px 10px;
+    border-radius: 7px; border: 1px solid rgba(130,80,240,0.25);
+    background: rgba(40,25,80,0.5); color: #b0a8d0;
+    cursor: pointer; font-family: system-ui, sans-serif;
+    transition: background 0.12s, color 0.12s;
+  }
+  #bem-controls button:hover { background: rgba(80,50,160,0.4); color: #d0c8f8; }
+  #bem-list {
+    overflow-y: auto; flex: 1;
+    padding: 8px 14px;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .bem-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 8px; border-radius: 8px; cursor: pointer;
+    border: 1px solid rgba(130,80,240,0.12);
+    background: rgba(20,12,45,0.5);
+    transition: background 0.12s;
+    user-select: none;
+  }
+  .bem-row:hover { background: rgba(55,28,110,0.45); }
+  .bem-cb { width: 15px; height: 15px; accent-color: #9060e0; cursor: pointer; flex-shrink: 0; }
+  .bem-thumb {
+    width: 48px; height: 27px; object-fit: cover;
+    border-radius: 4px; background: #111; flex-shrink: 0;
+  }
+  .bem-name { font-size: 13px; color: #b0a8d0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #bem-footer {
+    padding: 10px 18px 14px; flex-shrink: 0;
+    border-top: 1px solid rgba(130,80,240,0.15);
+    display: flex; gap: 8px;
+  }
+  #btn-bem-export {
+    flex: 1; font-size: 13px; font-weight: 600;
+    padding: 8px 12px; border-radius: 10px;
+    border: 1px solid rgba(130,80,240,0.45);
+    background: rgba(80,40,180,0.45); color: #d0c8f8;
+    cursor: pointer; font-family: system-ui, sans-serif;
+    transition: background 0.14s;
+  }
+  #btn-bem-export:hover:not(:disabled) { background: rgba(100,55,210,0.6); }
+  #btn-bem-cancel {
+    font-size: 13px; padding: 8px 16px; border-radius: 10px;
+    border: 1px solid rgba(130,80,240,0.25);
+    background: rgba(40,25,80,0.4); color: #a098c8;
+    cursor: pointer; font-family: system-ui, sans-serif;
+    transition: background 0.14s, color 0.14s;
+  }
+  #btn-bem-cancel:hover { background: rgba(70,40,130,0.4); color: #d0c8f8; }
+
+  /* Modal button base styles */
+  #scene-manager button {
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(130, 80, 240, 0.3);
+    background: rgba(40, 25, 80, 0.6);
+    color: #c8c0e8;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.14s, color 0.14s;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  #scene-manager button:hover { background: rgba(120, 72, 220, 0.25); color: #ddd4f8; }
+
+  /* ===== SCENE FADE (player transition) ===== */
+  #scene-fade {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #scene-fade.dark { opacity: 1; }
+  #scene-fade-name {
+    color: #a090d0;
+    font-size: 1.8rem;
+    font-weight: 300;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.4s ease 0.2s;
+    text-align: center;
+    pointer-events: none;
+  }
+  #scene-fade.dark #scene-fade-name { opacity: 1; }
+
+  /* ===== BLACKOUT (PresenceVTT) ===== */
+  /* Opaque cover for the projection. Sits above scene-fade and progress overlays
+     so nothing peeks through. Fades in <100ms (≈instant) on toggle. */
+  #blackout {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.06s linear;
+    z-index: 12000;
+  }
+  #blackout.on { opacity: 1; }
+  /* DM-only badge — only ever gets .on in the DM window (the player never toggles it). */
+  #blackout-indicator {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 13000;
+    display: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    background: rgba(170, 24, 24, 0.92);
+    color: #fff;
+    font: 600 13px system-ui, "Segoe UI", sans-serif;
+    letter-spacing: 0.15em;
+    pointer-events: none;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  }
+  #blackout-indicator.on { display: block; }
+
+  /* ===== MAP PROGRESS OVERLAY ===== */
+  #map-progress {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0, 0, 0, 0.65);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+  }
+  #map-progress-label {
+    color: #d0c8e8;
+    font-size: 15px;
+    font-family: system-ui, -apple-system, sans-serif;
+    letter-spacing: 0.3px;
+  }
+  #map-progress-track {
+    width: 320px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid rgba(150, 100, 255, 0.15);
+  }
+  #map-progress-bar {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #6a38aa, #3d6ab0);
+    border-radius: 4px;
+    transition: width 0.12s ease-out;
+  }
+
+  /* ===== LANDING ===== */
+  #landing {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: #888;
+    pointer-events: none;
+  }
+  #landing h2 { font-size: 22px; color: #666; font-weight: 400; }
+  #landing p  { font-size: 14px; }
+
+  /* =====================================================================
+     presenceVTT THEME — flat dark + arcane gold.
+     Layered OVER the original styles: only colours/surfaces/typography
+     change here, layout is left untouched. Everything is driven by the
+     :root tokens above, so the whole skin is adjustable from one place.
+     ===================================================================== */
+
+  /* Bundled display font — used ONLY for the wordmark, never body UI. Local
+     file, no network at runtime. */
+  @font-face {
+    font-family: 'Cinzel';
+    src: url('fonts/cinzel-600.woff2') format('woff2');
+    font-weight: 600; font-style: normal; font-display: swap;
+  }
+
+  body { background: var(--bg); color: var(--text); }
+
+  /* Flat panels (were translucent glass with blur). */
+  .glass-panel {
+    background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Text colours → tokens */
+  #sidebar-right button, #section-grid-hdr,
+  .section-hdr .rp-lbl, #section-grid-hdr .rp-lbl,
+  #panel-player button, #scene-manager button { color: var(--text); }
+  .slider-xy-tag, .grid-offset-lbl, .grid-offset-val, .grid-num,
+  #ui-scale-row span, #panel-brush-bottom label, #panel-brush label,
+  #panel-snap-bottom .snap-lbl, #panel-ruler-bottom .ruler-lbl,
+  #panel-ruler-bottom .ruler-share-lbl, .brush-val, #brush-size-label { color: var(--muted); }
+
+  /* Neutral hovers → subtle raised surface */
+  #sidebar-right button:hover, #section-grid-hdr:hover, .tool-btn:hover,
+  #panel-player button:hover, #scene-manager button:hover,
+  #btn-scenes:hover { background: var(--surface-2); color: var(--text); }
+
+  /* Active / selected → flat gold (replaces the blue→purple gradients) */
+  .tool-btn.active, #sidebar-right button.active, #panel-player button.active,
+  .grid-mode-btn.active {
+    background: var(--accent) !important;
+    color: var(--on-accent) !important;
+    box-shadow: none !important;
+  }
+
+  /* Sliders → gold (all range inputs, incl. Rules/Soundboard/editor panels) */
+  input[type="range"] { accent-color: var(--accent) !important; }
+  input[type="checkbox"], input[type="number"] { accent-color: var(--accent); }
+
+  /* Pill toggles (grid on, snap, ruler-share) → gold "on" */
+  .mini-toggle, #sidebar-right .mini-toggle,
+  #panel-snap-bottom .snap-toggle, #panel-ruler-bottom .snap-toggle {
+    background: var(--surface-2) !important; border-color: var(--border);
+  }
+  .mini-toggle::after, #panel-snap-bottom .snap-toggle::after,
+  #panel-ruler-bottom .snap-toggle::after { background: var(--muted); }
+  .mini-toggle.active, #sidebar-right .mini-toggle.active,
+  #panel-snap-bottom .snap-toggle.active, #panel-ruler-bottom .snap-toggle.active {
+    background: rgba(200, 162, 74, 0.28) !important; border-color: var(--accent) !important;
+  }
+  .mini-toggle.active::after, #panel-snap-bottom .snap-toggle.active::after,
+  #panel-ruler-bottom .snap-toggle.active::after { background: var(--accent); }
+
+  /* Scenes button → outlined, neutral */
+  #btn-scenes { background: transparent; border: 1px solid var(--border); color: var(--text); }
+
+  /* Dividers / separators / reveal-shroud frame */
+  .toolbar-divider, .panel-sep { background: var(--border); }
+  .tool-reveal-shroud { background: rgba(255, 255, 255, 0.03); border-color: var(--border); }
+
+  /* Primary action — "Ir ao vivo" (gold). Player/Projeção stays neutral. */
+  #btn-send {
+    background: var(--accent) !important; color: var(--on-accent) !important;
+    font-weight: 600 !important; font-size: 12px !important;
+    padding: 7px 12px !important; border-radius: 8px;
+  }
+  #btn-send:hover { background: #d8b25c !important; color: var(--on-accent) !important; }
+  #btn-player { color: var(--muted); font-size: 12px; }
+  #btn-player:hover { color: var(--text); }
+
+  /* Blackout — clear ON state (panic control) */
+  #btn-blackout { color: var(--muted); }
+  #btn-blackout:hover { background: var(--surface-2); color: var(--text); }
+  #btn-blackout.active {
+    background: #b81818 !important; color: #fff !important;
+    box-shadow: 0 0 0 1px rgba(255, 90, 90, 0.45) !important;
+  }
+
+  /* UI scale row + legend button surfaces */
+  #ui-scale-row { background: var(--surface); border: 1px solid var(--border); }
+  #ui-scale-row span { color: var(--muted); }
+  #btn-legend { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+  #btn-legend:hover { background: var(--surface-2); color: var(--accent); }
+
+  /* Help legend (the "?" shortcut list) */
+  #shortcut-legend .legend-title, #shortcut-legend .legend-cat { color: var(--accent); }
+  #shortcut-legend .legend-hint { color: var(--muted); }
+  #shortcut-legend .legend-row { color: var(--muted); }
+  #shortcut-legend kbd { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
+
+  /* Scene manager headings */
+  #sm-header h3 { color: var(--text); }
+
+  /* Keyboard focus ring → gold (accessibility in low light) */
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* Landing → brand lockup */
+  #landing { color: var(--muted); }
+  #landing p { color: var(--muted); }
+  #landing p strong { color: var(--accent); font-weight: 600; }
+
+  /* Wordmark — Cinzel, display only */
+  .wordmark {
+    font-family: 'Cinzel', Georgia, 'Times New Roman', serif;
+    font-weight: 600; letter-spacing: 0.06em; color: var(--text);
+  }
+  .wordmark .wm-vtt { color: var(--accent); }
+  .brand-lockup { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .brand-mark { color: var(--accent); width: 76px; height: 76px; display: block; }
+  .brand-mark .bm-ring-outer { opacity: 0.35; }
+
+</style>
+</head>
+<body>
+<script>if (new URLSearchParams(location.search).get('mode') === 'player') document.body.classList.add('player-mode');</script>
+
+<!-- TOOLS WRAPPER (bottom-center, stacks brush panel above toolbar) -->
+<div id="tools-wrapper">
+
+  <!-- Snap toggle — shown for all non-brush tools -->
+  <div id="panel-snap-bottom" class="glass-panel">
+    <label class="snap-lbl">Grudar</label>
+    <button id="btn-snap" class="snap-toggle" title="Grudar no grid (N)"></button>
+  </div>
+
+  <!-- Brush size panel — shown only when Brush is active -->
+  <div id="panel-brush-bottom" class="glass-panel">
+    <label>SIZE</label>
+    <input type="range" id="brush-size" min="5" max="300" value="40">
+    <span id="brush-size-label" class="brush-val">40</span>
+  </div>
+
+  <!-- Ruler panel — shown only when Ruler mode is active (PresenceVTT) -->
+  <div id="panel-ruler-bottom" class="glass-panel">
+    <label class="ruler-lbl">Régua</label>
+    <button id="btn-ruler-share" class="snap-toggle" title="Mostrar réguas aos jogadores (Shift+R)"></button>
+    <span class="ruler-share-lbl">👁 Jogadores</span>
+    <button id="btn-ruler-clear" class="ruler-clear-btn" title="Limpar todas as réguas">🗑 Limpar</button>
+  </div>
+
+  <!-- Token panel — shown only in Token mode (PresenceVTT) -->
+  <!-- Token popup — floats at the SELECTED token (positioned by tokens.js). -->
+  <div id="panel-token-bottom" class="glass-panel">
+    <div class="tp-row">
+      <input type="text" id="token-name" maxlength="24" placeholder="Nome do token" title="Nome">
+      <input type="color" id="token-color" value="#5ad1e6" title="Cor">
+      <button id="btn-token-delete" class="tp-del" title="Apagar (Delete)">🗑</button>
+    </div>
+    <div class="tp-row">
+      <span class="tp-lbl">Tam.</span>
+      <input type="range" id="token-size" min="0.25" max="4" step="0.25" value="1" title="Tamanho (células)">
+      <span id="token-size-val">—</span>
+    </div>
+    <div class="tp-sec">Condições</div>
+    <div id="token-conditions" class="tp-grid"></div>
+    <div class="tp-sec">Bandas de range (células)</div>
+    <div id="token-bands" class="tp-grid"></div>
+  </div>
+
+  <!-- Area panel — shown in Área mode (PresenceVTT) -->
+  <div id="panel-aoe-bottom" class="glass-panel">
+    <label class="ruler-lbl">Área</label>
+    <button class="aoe-shape-btn active" data-shape="burst" title="Círculo / Burst">● Burst</button>
+    <button class="aoe-shape-btn" data-shape="cone" title="Cone">◣ Cone</button>
+    <button class="aoe-shape-btn" data-shape="line" title="Linha">▬ Linha</button>
+    <button class="aoe-shape-btn" data-shape="emanation" title="Emanação (de um token ou ponto)">◎ Eman.</button>
+    <input type="color" id="aoe-color" class="aoe-color" value="#ff7a45" title="Cor da área (aplica à selecionada)">
+    <span class="ruler-share-lbl" style="opacity:.7">arraste cria · corpo move · alça redimensiona · dir. apaga</span>
+    <button id="btn-aoe-clear" class="ruler-clear-btn" title="Limpar todas as áreas">🗑 Limpar</button>
+  </div>
+
+  <!-- Markings panel — shown in Marcações mode (PresenceVTT) -->
+  <div id="panel-draw-bottom" class="glass-panel">
+    <label class="ruler-lbl">Marcações</label>
+    <button class="draw-tool-btn active" data-tool="ping" title="Ping — clique para chamar atenção (some sozinho)">◎ Ping</button>
+    <button class="draw-tool-btn" data-tool="trace" title="Traçado — arraste; some sozinho depois de soltar">〜 Traçado</button>
+    <button class="draw-tool-btn" data-tool="scribble" title="Risco — arraste; fica até apagar">✎ Risco</button>
+    <button id="btn-draw-clear" class="ruler-clear-btn" title="Apagar os riscos fixos">🗑 Limpar</button>
+  </div>
+
+  <!-- Main icon toolbar -->
+  <div id="toolbar-bottom" class="glass-panel">
+
+    <!-- Reveal / Shroud toggle -->
+    <div class="tool-reveal-shroud">
+      <button id="btn-reveal" class="tool-btn reveal-btn active" title="Revelar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button id="btn-shroud" class="tool-btn shroud-btn" title="Ocultar (S)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"/></svg>
+      </button>
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <!-- Tools: Select, Polygon, Rectangle, Circle, Brush -->
+    <button id="btn-select" class="tool-btn" title="Selecionar / Mover (V)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 4 7.07 17 2.51-7.39L21 11.07 4 4z"/></svg>
+    </button>
+    <button id="btn-poly" class="tool-btn" title="Polígono (P)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,3.5 20,9.5 17,19 7,19 4,9.5"/></svg>
+    </button>
+    <button id="btn-rect" class="tool-btn" title="Retângulo (E)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/></svg>
+    </button>
+    <button id="btn-circle" class="tool-btn" title="Círculo (C)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>
+    </button>
+    <button id="btn-brush" class="tool-btn active" title="Pincel">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 4.5a2.12 2.12 0 013 3L7 20l-4 1 1-4L16.5 4.5z"/><path d="M15 6l3 3"/></svg>
+    </button>
+
+    <div class="toolbar-divider"></div>
+
+    <!-- Ruler — measure distance in grid cells (PresenceVTT) -->
+    <button id="btn-ruler" class="tool-btn" title="Régua — medir distância em células (R)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 8.7 8.7 21.3a2.4 2.4 0 0 1-3.4 0l-2.6-2.6a2.4 2.4 0 0 1 0-3.4L15.3 2.7a2.4 2.4 0 0 1 3.4 0l2.6 2.6a2.4 2.4 0 0 1 0 3.4Z"/><path d="m7.5 10.5 2 2"/><path d="m10.5 7.5 2 2"/><path d="m13.5 4.5 2 2"/><path d="m4.5 13.5 2 2"/></svg>
+    </button>
+
+    <!-- Token — dumb visual anchor for a mini (PresenceVTT) -->
+    <button id="btn-token" class="tool-btn" title="Token — âncora de mini (T)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+    </button>
+
+    <!-- Area templates (PresenceVTT) -->
+    <button id="btn-aoe" class="tool-btn" title="Área (AoE) — atalho A · arraste cria; fica fixa, move e redimensiona">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
+    </button>
+
+    <!-- Markings: ping / traçado / risco (PresenceVTT) -->
+    <button id="btn-draw" class="tool-btn" title="Marcações (D) — ping · traçado some · risco fica">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+    </button>
+
+  </div>
+</div>
+
+<!-- RIGHT SIDEBAR -->
+<div id="sidebar-right-anchor">
+
+<!-- Scenes button — separate panel above settings -->
+<div id="panel-scenes" class="glass-panel">
+  <button id="btn-scenes" title="Abrir o gerenciador de cenas">
+    <svg class="rp-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M3 9h18M8 21h8M12 17v4"/></svg>
+    Cenas
+  </button>
+  <div id="panel-scenes-actions">
+    <div class="psa-group">
+      <span class="psa-lbl">Backup de cenas</span>
+      <div class="psa-row">
+        <button id="btn-backup-export" class="btn-backup" title="Exportar cenas selecionadas para um .zip">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Exportar
+        </button>
+        <button id="btn-backup-restore" class="btn-backup" title="Restaurar cenas de um .zip">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Restaurar
+        </button>
+      </div>
+    </div>
+    <div class="psa-group">
+      <span class="psa-lbl">Perfil completo</span>
+      <div class="psa-row">
+        <button id="btn-profile-export" class="btn-backup btn-profile" title="Exportar o PERFIL completo (todas as cenas + sons + sistemas) para um .zip">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+          Exportar
+        </button>
+        <button id="btn-profile-import" class="btn-backup btn-profile" title="Importar um perfil .zip (adiciona cenas, sons e sistemas)">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
+          Importar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings panel -->
+<div id="sidebar-right" class="glass-panel">
+
+  <!-- Grid -->
+  <div class="section open" id="section-grid">
+    <div id="section-grid-hdr" class="section-hdr rp-hdr">
+      <svg class="rp-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      <span class="rp-lbl">Grid</span>
+      <button id="btn-grid" class="mini-toggle" title="Ativar/desativar grid (G)"></button>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="section-body">
+      <div class="slider-row">
+        <input type="range" id="grid-size" min="10" max="400" value="70" title="Tamanho da célula">
+        <input type="number" id="grid-size-num" class="grid-num" min="10" max="400" value="70" title="Tamanho da célula (px)">
+      </div>
+      <div class="slider-row">
+        <input type="range" id="grid-offset-x" min="0" max="400" value="0" title="Deslocamento X do grid">
+        <input type="number" id="grid-offset-x-num" class="grid-num" min="0" max="400" value="0" title="Deslocamento X (px)">
+        <span class="slider-xy-tag">X</span>
+      </div>
+      <div class="slider-row">
+        <input type="range" id="grid-offset-y" min="0" max="400" value="0" title="Deslocamento Y do grid">
+        <input type="number" id="grid-offset-y-num" class="grid-num" min="0" max="400" value="0" title="Deslocamento Y (px)">
+        <span class="slider-xy-tag">Y</span>
+      </div>
+      <div class="slider-row">
+        <input type="range" id="grid-thickness" min="1" max="10" value="1" title="Espessura da linha">
+        <input type="number" id="grid-thickness-num" class="grid-num" min="1" max="10" value="1" title="Espessura da linha (px)">
+        <span class="slider-xy-tag" style="min-width:14px">px</span>
+      </div>
+      <div class="section-row" style="gap:2px;margin-top:4px">
+        <button id="btn-grid-sq" class="grid-mode-btn active" title="Grid quadrado">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="5" height="5" rx="0.5"/><rect x="8" y="1" width="5" height="5" rx="0.5"/><rect x="1" y="8" width="5" height="5" rx="0.5"/><rect x="8" y="8" width="5" height="5" rx="0.5"/></svg>
+        </button>
+        <button id="btn-grid-hflat" class="grid-mode-btn" title="Hex topo plano">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12.5,7 9.75,2.24 4.25,2.24 1.5,7 4.25,11.76 9.75,11.76"/></svg>
+        </button>
+        <button id="btn-grid-hptop" class="grid-mode-btn" title="Hex topo pontudo">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="7,1.5 11.76,4.25 11.76,9.75 7,12.5 2.24,9.75 2.24,4.25"/></svg>
+        </button>
+      </div>
+      <div class="slider-row" style="margin-top:2px">
+        <input type="color" id="grid-color" value="#ffffff" title="Cor do grid">
+        <input type="range" id="grid-opacity" min="0" max="100" value="25" title="Opacidade do grid">
+        <input type="number" id="grid-opacity-num" class="grid-num" min="0" max="100" value="25" title="Opacidade %">
+      </div>
+      <button id="btn-grid-reset" title="Restaurar grid ao padrão">Resetar grid</button>
+    </div>
+  </div>
+
+  <div class="panel-sep"></div>
+
+  <!-- Fog -->
+  <div class="section open" id="section-fog">
+    <div class="section-hdr rp-hdr" id="fog-section-hdr">
+      <svg class="rp-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z"/></svg>
+      <span class="rp-lbl">Fog</span>
+      <button id="btn-anim" class="mini-toggle" title="Ativar/desativar animação do fog (A)"></button>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="section-body">
+      <div class="section-row" style="gap:4px">
+        <button id="btn-fill-fog" style="flex:1">Ocultar tudo</button>
+        <button id="btn-clear-fog" style="flex:1">Revelar tudo</button>
+      </div>
+      <div class="section-row" style="gap:2px;margin-top:4px">
+        <button id="anim-preset-calm" class="grid-mode-btn anim-preset-btn" title="Calmo — deriva suave">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 3 C3 2, 5 2, 8 3 C11 4, 13 4, 15 3"/><path d="M1 6 C3 5, 5 5, 8 6 C11 7, 13 7, 15 6"/><path d="M1 9 C3 8, 5 8, 8 9 C11 10, 13 10, 15 9"/></svg>
+        </button>
+        <button id="anim-preset-default" class="grid-mode-btn anim-preset-btn active" title="Padrão — fog equilibrado">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 3 C3 1, 5 1, 8 3 C11 5, 13 5, 15 3"/><path d="M1 6 C3 4, 5 4, 8 6 C11 8, 13 8, 15 6"/><path d="M1 9 C3 7, 5 7, 8 9 C11 11, 13 11, 15 9"/></svg>
+        </button>
+        <button id="anim-preset-fast" class="grid-mode-btn anim-preset-btn" title="Rápido — fog agitado">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 4 L4 1 L7 5 L10 1 L13 4 L15 2"/><path d="M1 7 L3 5 L6 8 L9 4 L12 8 L15 6"/><path d="M1 11 L4 8 L7 11 L10 8 L13 11 L15 9"/></svg>
+        </button>
+        <button id="btn-anim-advanced" class="grid-mode-btn" title="Configurações avançadas de animação" style="flex:none;width:28px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.32 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        </button>
+        <button id="btn-anim-reset" class="grid-mode-btn" title="Restaurar ao preset padrão" style="flex:none;width:28px">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+        </button>
+      </div>
+      <div id="anim-advanced-panel" style="display:none;margin-top:2px">
+        <div class="slider-row">
+          <span class="slider-xy-tag" style="min-width:38px">Vel.</span>
+          <input type="range" id="anim-speed" min="0" max="300" value="100" title="Multiplicador geral de velocidade">
+          <input type="number" id="anim-speed-num" class="grid-num" min="0" max="300" value="100" step="1" title="Velocidade %">
+        </div>
+        <div class="slider-row">
+          <span class="slider-xy-tag" style="min-width:38px">Deriva</span>
+          <input type="range" id="anim-drift" min="0" max="1000" value="500" title="Velocidade de deriva (movimento espacial)">
+          <input type="number" id="anim-drift-num" class="grid-num" min="0" max="1000" value="1.00" step="0.01" title="Multiplicador de deriva" style="width:42px">
+        </div>
+        <div class="slider-row">
+          <span class="slider-xy-tag" style="min-width:38px">Morph</span>
+          <input type="range" id="anim-morph-speed" min="0" max="1000" value="500" title="Velocidade de morphing da textura">
+          <input type="number" id="anim-morph-num" class="grid-num" min="0" max="1000" value="0.35" step="0.01" title="Velocidade de morph" style="width:42px">
+        </div>
+        <div class="slider-row">
+          <span class="slider-xy-tag" style="min-width:38px">Warp</span>
+          <input type="range" id="anim-warp-str" min="0" max="1000" value="500" title="Intensidade do warp (domain warp)">
+          <input type="number" id="anim-warp-num" class="grid-num" min="0" max="1000" value="0.15" step="0.01" title="Intensidade do warp" style="width:42px">
+        </div>
+        <div class="slider-row">
+          <span class="slider-xy-tag" style="min-width:38px">WarpR</span>
+          <input type="range" id="anim-warp-rad" min="0" max="1000" value="500" title="Raio do warp">
+          <input type="number" id="anim-warp-rad-num" class="grid-num" min="0" max="1000" value="0.08" step="0.01" title="Raio do warp" style="width:42px">
+        </div>
+        <div class="slider-row">
+          <span class="slider-xy-tag" style="min-width:38px">Pulso</span>
+          <input type="range" id="anim-alpha-amp" min="0" max="1000" value="500" title="Amplitude do pulso de alpha">
+          <input type="number" id="anim-alpha-amp-num" class="grid-num" min="0" max="1000" value="0.30" step="0.01" title="Amplitude do pulso" style="width:42px">
+        </div>
+        <div class="slider-row" style="margin-top:4px;border-top:1px solid rgba(255,255,255,0.08);padding-top:4px">
+          <span class="slider-xy-tag" style="min-width:38px">Borda</span>
+          <input type="range" id="fog-feather" min="0" max="24" value="12" step="1" title="Raio de suavização da borda revelada (px na escala do fog)">
+          <input type="number" id="fog-feather-num" class="grid-num" min="0" max="24" value="12" step="1" title="Raio de suavização" style="width:42px">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-sep"></div>
+
+  <!-- Player -->
+  <div class="section open" id="section-player">
+    <button class="section-hdr rp-hdr" id="player-section-hdr">
+      <svg class="rp-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      <span class="rp-lbl">Projeção</span><span class="chevron">▾</span>
+    </button>
+    <div class="section-body">
+      <button id="btn-player" title="Abrir a janela de projeção">Abrir projeção</button>
+      <button id="btn-sync-view" title="Enviar a visão atual do mestre para a projeção">Sincronizar visão</button>
+      <button id="btn-auto-sync" title="Enviar mudanças de fog automaticamente">Auto</button>
+      <button id="btn-fullscreen-player" title="Alternar tela cheia na projeção">Tela cheia</button>
+      <button id="btn-send" title="Mostrar o estado atual na projeção (Espaço)">Ir ao vivo ▶</button>
+      <button id="btn-blackout" title="Apagar a projeção (B) — o mestre continua vendo">⬛ Blackout</button>
+    </div>
+  </div>
+
+</div>
+</div><!-- /#sidebar-right-anchor -->
+
+<!-- UI SCALE CONTROL — outside sidebar so it isn't affected by the zoom it controls -->
+<div id="ui-scale-row">
+  <button id="btn-legend" title="Atalhos de teclado (?)">?</button>
+  <span>⚙ Escala</span>
+  <input type="range" id="ui-scale" min="75" max="175" value="120" title="Escala da interface">
+</div>
+
+<!-- SHORTCUT LEGEND (DM only) -->
+<div id="legend-backdrop" style="display:none"></div>
+<div id="shortcut-legend" class="glass-panel" style="display:none">
+  <div class="legend-title">
+    <span>Atalhos de teclado</span>
+    <span class="legend-hint">? ou Esc para fechar</span>
+  </div>
+  <div class="legend-cols">
+    <div>
+      <div class="legend-cat">Ferramentas</div>
+      <div class="legend-row"><kbd>R</kbd> Régua</div>
+      <div class="legend-row"><kbd>T</kbd> Token (âncora de mini)</div>
+      <div class="legend-row"><kbd>E</kbd> Retângulo</div>
+      <div class="legend-row"><kbd>P</kbd> Polígono</div>
+      <div class="legend-row"><kbd>C</kbd> Círculo</div>
+      <div class="legend-row"><kbd>V</kbd> Selecionar / Mover</div>
+      <div class="legend-row"><kbd>S</kbd> Ocultar</div>
+      <div class="legend-row"><kbd>N</kbd> Grudar no grid</div>
+      <div class="legend-row"><kbd>[</kbd><kbd>]</kbd> Tamanho do pincel −/+</div>
+      <div class="legend-row" style="opacity:.7">Pincel e Revelar: na barra</div>
+      <div class="legend-cat">Mapa &amp; Visão</div>
+      <div class="legend-row">Abrir/trocar mapa: <strong>Cenas</strong></div>
+      <div class="legend-row"><kbd>F</kbd> Ajustar à tela</div>
+      <div class="legend-row"><kbd>Ctrl Z</kbd> Desfazer</div>
+      <div class="legend-row"><kbd>Ctrl Y</kbd> Refazer</div>
+    </div>
+    <div>
+      <div class="legend-cat">Fog &amp; Grid</div>
+      <div class="legend-row"><kbd>G</kbd> Grid liga/desliga</div>
+      <div class="legend-row"><kbd>A</kbd> Animação do fog</div>
+      <div class="legend-row"><kbd>T</kbd> Alternar modo do polígono</div>
+      <div class="legend-row"><kbd>Del</kbd> Apagar polígono / vértice</div>
+      <div class="legend-row"><kbd>Esc</kbd> Desselecionar vértice / polígono</div>
+      <div class="legend-row"><kbd>2×</kbd> Clique na aresta → insere vértice</div>
+      <div class="legend-cat">Projeção</div>
+      <div class="legend-row"><kbd>Espaço</kbd> Ir ao vivo</div>
+      <div class="legend-row"><kbd>Shift S</kbd> Ir ao vivo (modo manual)</div>
+      <div class="legend-row"><kbd>Shift R</kbd> Mostrar régua aos jogadores</div>
+      <div class="legend-row"><kbd>B</kbd> Blackout da projeção</div>
+      <div class="legend-row"><kbd>F</kbd> Tela cheia <span style="opacity:.6">(na projeção)</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- POLYGON CONTEXT PANEL (floats near selected polygon, DM only) -->
+<div id="panel-poly-ctx" class="glass-panel">
+  <div class="pctx-r1">
+    <button id="poly-ctx-reveal" title="Modo revelar">◯</button>
+    <button id="poly-ctx-shroud" title="Modo ocultar">◉</button>
+    <div class="pctx-gap"></div>
+    <button id="poly-ctx-delete" title="Apagar polígono"><svg width="11" height="13" viewBox="0 0 11 13" fill="none" style="vertical-align:middle;display:inline-block"><path d="M1 3.5h9M3.5 3.5V2a.5.5 0 01.5-.5h3a.5.5 0 01.5.5v1.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/><rect x="1.5" y="3.5" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.1"/><line x1="4" y1="6" x2="4" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/><line x1="7" y1="6" x2="7" y2="10" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg></button>
+  </div>
+  <div class="pctx-r2">
+    <span class="pctx-ico" title="Raio do canto">▢</span>
+    <input type="range" id="poly-ctx-radius" min="0" max="300" value="0">
+    <span id="poly-ctx-radius-val">0</span>
+    <button id="poly-ctx-rmode" title="Todos os cantos / vértice selecionado">∀</button>
+  </div>
+  <div class="pctx-r3" id="pctx-vrow" style="display:none">
+    <span id="poly-ctx-info"></span>
+    <button id="poly-ctx-del-vertex" title="Apagar vértice (Del)">✕v</button>
+  </div>
+</div>
+
+<div id="canvas-container">
+  <canvas id="map-canvas"></canvas>
+  <canvas id="fog-canvas"></canvas>
+  <canvas id="grid-canvas"></canvas>
+  <canvas id="token-canvas"></canvas>
+  <canvas id="cursor-canvas"></canvas>
+</div>
+
+<div id="landing">
+  <div class="brand-lockup">
+    <svg class="brand-mark" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+      <circle class="bm-ring-outer" cx="50" cy="50" r="34" stroke="currentColor" stroke-width="2"/>
+      <circle cx="50" cy="50" r="20" stroke="currentColor" stroke-width="2.5"/>
+      <circle cx="50" cy="50" r="6.5" fill="currentColor"/>
+    </svg>
+    <h2 class="wordmark" style="font-size:28px;margin:0">presence<span class="wm-vtt">VTT</span></h2>
+  </div>
+  <p>Abra <strong>Cenas</strong> na barra para começar</p>
+</div>
+
+<div id="scene-fade"><div id="scene-fade-name"></div></div>
+
+<!-- Blackout (PresenceVTT): opaque cover shown ONLY on the projection; the DM shows the badge instead. -->
+<div id="blackout"></div>
+<div id="blackout-indicator">⬛ BLACKOUT ATIVO</div>
+
+<div id="map-progress">
+  <div id="map-progress-label">Salvando vídeo do mapa...</div>
+  <div id="map-progress-track">
+    <div id="map-progress-bar"></div>
+  </div>
+</div>
+
+<!-- SCENE MANAGER MODAL -->
+<div id="scene-manager-backdrop" style="display:none"></div>
+<div id="scene-manager-anchor">
+<div id="scene-manager" class="glass-panel" style="display:none">
+  <div id="sm-header">
+    <h3>Cenas</h3>
+    <button id="btn-sm-close">✕</button>
+  </div>
+  <div id="sm-grid">
+    <div id="sm-empty">Nenhuma cena ainda — clique em + Nova cena para adicionar</div>
+  </div>
+  <div id="sm-footer">
+    <button id="btn-sm-new">+ Nova cena</button>
+  </div>
+</div>
+</div><!-- /#scene-manager-anchor -->
+
+<!-- BACKUP EXPORT MODAL -->
+<div id="backup-export-backdrop" style="display:none"></div>
+<div id="backup-export-anchor">
+<div id="backup-export-modal" class="glass-panel" style="display:none">
+  <div id="bem-header">
+    <h3>Exportar backup</h3>
+    <button id="btn-bem-close">✕</button>
+  </div>
+  <div id="bem-controls">
+    <button id="btn-bem-all">Selecionar tudo</button>
+    <button id="btn-bem-none">Desmarcar tudo</button>
+  </div>
+  <div id="bem-list"></div>
+  <div id="bem-footer">
+    <button id="btn-bem-export">Exportar 0 cenas</button>
+    <button id="btn-bem-cancel">Cancelar</button>
+  </div>
+</div>
+</div><!-- /#backup-export-anchor -->
+
+<input type="file" id="file-input" accept="image/*,video/mp4,video/webm" style="display:none">
+
+<script src="lib/pixi.min.js"></script>
+<script src="renderer.js"></script>
+<script src="state.js"></script>
+<script src="fog.js"></script>
+<script src="tools.js"></script>
+<script src="sceneStore.js"></script>
+<script src="scenes.js"></script>
+<script src="viewport.js"></script>
+<script src="ruler.js"></script>
+<script src="systems.js"></script>
+<script src="conditions.js"></script>
+<script src="tokens.js"></script>
+<script src="aoe.js"></script>
+<script src="draw.js"></script>
+<script src="rules.js"></script>
+<script src="system-editor.js"></script>
+<script src="lib/howler.min.js"></script>
+<script src="soundboard.js"></script>
+<script src="blackout.js"></script>
+<script src="backup.js"></script>
+<script>
+'use strict';
+
+// ─── Mode ─────────────────────────────────────────────────────────────────────
+const isPlayer = new URLSearchParams(window.location.search).get('mode') === 'player';
+if (isPlayer) {
+  document.body.classList.add('player-mode');
+  document.title = 'presenceVTT — Projeção';
+  // In Electron, requestFullscreen() works without a user gesture.
+  // This auto-fullscreens the player window on launch without using native
+  // Electron fullscreen (which lacks a clean exit path from the renderer).
+
+  window.addEventListener('wheel',      e => e.preventDefault(), { passive: false });
+  window.addEventListener('touchmove',  e => e.preventDefault(), { passive: false });
+  window.addEventListener('contextmenu',e => e.preventDefault());
+}
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+const ZOOM_FACTOR       = 1.1;
+const POLY_CLOSE_RADIUS = 12;  // screen-px hit area to close polygon on first vertex
+let usePixi = true;
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let mapOffscreen = null;
+let mapBitmap    = null;
+let mapVideo     = null;   // <video> element for animated maps
+let mapVideoBlob = null;   // original video file Blob for storage/sync
+let mapVideoUrl  = null;   // blob URL backing mapVideo (revoke on cleanup)
+let videoEnabled = false;  // true while video is actively playing as map source
+let videoRAFId   = null;   // RAF id for video-driven map redraws (fallback)
+let videoRVFCId  = null;   // requestVideoFrameCallback id (preferred)
+let videoLastRenderTs = 0;
+const VIDEO_MIN_FRAME_INTERVAL = 1000 / 24;
+let mapWidth = 0, mapHeight = 0;
+let zoom = 1, panX = 0, panY = 0;
+let gridEnabled    = false;
+let gridSize       = 70;
+let gridOffsetX    = 0;
+let gridOffsetY    = 0;
+let gridColor      = '#ffffff';
+let gridOpacity    = 0.25;
+let gridMode       = 'square'; // 'square' | 'hex-flat' | 'hex-pointy'
+let gridLineWidth  = 1;
+let isPanning = false;
+let panStartX, panStartY, panStartPanX, panStartPanY;
+let playerWindow = null;
+let playerMapSent = false;
+let lastScreenX = null, lastScreenY = null;
+
+// ─── Polygon state ────────────────────────────────────────────────────────────
+let polygons = [];          // closed persistent polygons: {id, vertices:[{x,y}], mode}
+let nextPolygonId = 1;
+
+// ─── Undo/Redo ────────────────────────────────────────────────────────────────
+let undoStack = [];
+let redoStack = [];
+const UNDO_MAX_BYTES = 120 * 1024 * 1024; // ~8 entries on a 10k×6k map
+
+// ─── Auto-Sync ────────────────────────────────────────────────────────────────
+let autoSync = false;
+let autoSyncTimer = null;
+
+// ─── Scene management ─────────────────────────────────────────────────────────
+let currentScene    = null;   // full scene record in memory (includes mapBlob ref)
+let allScenes       = [];     // lightweight list for the sidebar
+let autoSaveTimer   = null;
+let mapLoadMode     = 'auto'; // 'new' = create scene, 'replace' = replace map
+let switchGeneration = 0;     // monotone counter; each switchScene call captures its
+                               // own generation and aborts if a newer call has started
+
+// ─── Player Sync State ────────────────────────────────────────────────────────
+let playerFollowMode = true;  // DM side: last known player mode
+let playerFollowDM   = true;  // Player side: whether to mirror DM viewport
+let lastDMView       = null;  // Player side: most recent view received from DM
+let viewLerpActive   = false;
+let viewLerpFrom     = null, viewLerpTo = null, viewLerpStart = 0;
+const VIEW_LERP_MS   = 400;
+
+// Dirty flags — the key to avoiding unnecessary work.
+// viewportDirty: pan/zoom/resize/map-load changed → redraw ALL layers.
+// fogDirty: brush/rect/reveal-all/shroud-all → redraw ONLY the fog layer.
+// gridDirty: grid toggle/size change → redraw ONLY the grid layer.
+let renderScheduled = false;
+let viewportDirty   = false;
+let mapDirty        = false;
+let fogDirty        = false;
+let gridDirty       = false;
+let tokensDirty     = false; // token layer changed → redraw ONLY #token-canvas (PresenceVTT)
+
+// Player-only: the (possibly downscaled) canvas backing the PixiJS map texture for
+// video maps. The Player has no DOM <video> compositing — the map is a masked PixiJS
+// sprite — so each frame we draw the video into this canvas and re-upload the texture.
+let playerMapTexCanvas = null;
+let playerMapTexCtx    = null;
+
+// ─── DOM — four stacked canvases ──────────────────────────────────────────────
+const container      = document.getElementById('canvas-container');
+const mapCanvas      = document.getElementById('map-canvas');
+const fogCanvas      = document.getElementById('fog-canvas');
+const gridCanvasEl   = document.getElementById('grid-canvas');
+const tokenCanvas    = document.getElementById('token-canvas');
+const cursorCanvas   = document.getElementById('cursor-canvas');
+const mapCtx         = mapCanvas.getContext('2d');
+const fogDisplayCtx  = fogCanvas.getContext('2d');
+const gridCtx        = gridCanvasEl.getContext('2d');
+const tokenCtx       = tokenCanvas.getContext('2d');
+const cursorCtx      = cursorCanvas.getContext('2d');
+// Player+PixiJS only — canvas inserted between #pixi-canvas and #fog-canvas so fog hides it.
+let playerGridCanvas = null, playerGridCtx = null;
+const landing        = document.getElementById('landing');
+
+// Fog display canvas uses CSS opacity so the browser GPU-composites it for free.
+fogCanvas.style.opacity = isPlayer ? '1' : String(FOG_OPACITY_DM);
+
+// ─── PixiJS init ──────────────────────────────────────────────────────────────
+if (usePixi) {
+  mapCanvas.style.display = 'none';
+  // Hybrid: the DM's fog is rendered by PixiJS, so its 2D fog-canvas stays hidden.
+  // The Player draws Canvas-2D fog (renderFog) ON TOP of the PixiJS map sprite, so
+  // its fog-canvas must stay visible — otherwise syncSize skips it (display:none),
+  // it never gets sized, and renderFog paints into a 0×0 canvas (map shows fully
+  // revealed with only the container background visible around it).
+  if (!isPlayer) fogCanvas.style.display = 'none';
+  initPixiRenderer(container);
+  if (isPlayer) {
+    // Fill viewport with fog colour outside the map rect via CSS — keeps PixiJS canvas transparent
+    // so the video DOM element can show through for video maps.
+    container.style.background = '#1a1a2e';
+    // Grid canvas: must sit above #pixi-canvas but below #fog-canvas so fog hides the grid
+    // in shrouded areas. #map-canvas is hidden in PixiJS mode so we need a dedicated layer.
+    playerGridCanvas = document.createElement('canvas');
+    playerGridCanvas.id = 'player-grid-canvas';
+    playerGridCanvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
+    container.insertBefore(playerGridCanvas, fogCanvas);
+    playerGridCtx = playerGridCanvas.getContext('2d');
+  }
+}
+
+// ─── Map loading ──────────────────────────────────────────────────────────────
+function loadMapFromFile(file, onMapLoaded) {
+  if (!file) return;
+  if (!file.type.startsWith('image/') && !/\.(jpe?g|png|gif|bmp|webp|svg)$/i.test(file.name)) return;
+  cleanupVideo();
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onerror = () => { URL.revokeObjectURL(url); hideMapProgress(); alert('Falha ao carregar a imagem do mapa.'); };
+  img.onload = () => {
+    mapWidth  = img.naturalWidth;
+    mapHeight = img.naturalHeight;
+
+    mapOffscreen = document.createElement('canvas');
+    mapOffscreen.width  = mapWidth;
+    mapOffscreen.height = mapHeight;
+    mapOffscreen.getContext('2d').drawImage(img, 0, 0);
+
+    if (mapBitmap) { mapBitmap.close(); mapBitmap = null; }
+    if (usePixi) {
+      pixiSetMap(mapOffscreen, mapWidth, mapHeight);
+      viewportDirty = true;
+      scheduleRender();
+      if (onMapLoaded) onMapLoaded(mapOffscreen, file);
+    } else {
+      createImageBitmap(img).then(bmp => {
+        mapBitmap = bmp;
+        viewportDirty = true;
+        scheduleRender();
+        if (onMapLoaded) onMapLoaded(bmp, file);
+      });
+    }
+
+    fogDataCanvas = document.createElement('canvas');
+    fogDataCanvas.width  = Math.ceil(mapWidth  / FOG_SCALE);
+    fogDataCanvas.height = Math.ceil(mapHeight / FOG_SCALE);
+    fogDataCtx = fogDataCanvas.getContext('2d');
+    fogDataCtx.fillStyle = '#1a1a2e';
+    fogDataCtx.fillRect(0, 0, fogDataCanvas.width, fogDataCanvas.height);
+
+    baseFogCanvas = document.createElement('canvas');
+    baseFogCanvas.width = fogDataCanvas.width;
+    baseFogCanvas.height = fogDataCanvas.height;
+    baseFogCtx = baseFogCanvas.getContext('2d');
+    baseFogCtx.fillStyle = '#1a1a2e';
+    baseFogCtx.fillRect(0, 0, baseFogCanvas.width, baseFogCanvas.height);
+
+    polygons = []; activePolygon = null; selectedPolygonId = null;
+    nextPolygonId = 1;
+    playerMapSent = false;
+
+    if (!cloudPattern) generateCloudFrames(512, CLOUD_FRAME_COUNT);
+    rebuildFogEffect();
+    if (usePixi && !isPlayer) { pixiInitFog(fogDataCanvas, fogBlurCanvas, cloudBlendCanvas, mapWidth, mapHeight); pixiFlushTexturePool(); pixiUpdateFogBlurTexture(); }
+
+    URL.revokeObjectURL(url);
+    fitToScreen();
+    if (!isPlayer) container.style.cursor = 'crosshair';
+    landing.style.display = 'none';
+    viewportDirty = true;
+    scheduleRender();
+  };
+  img.src = url;
+}
+
+// ─── Video DOM compositing ────────────────────────────────────────────────────
+// Instead of drawImage(video) to canvas every frame (which forces a GPU→CPU
+// readback per frame), we insert the <video> element directly into the DOM
+// behind the canvas stack and let the browser's native hardware compositor
+// handle it — the same zero-copy path that VLC/media-players use.
+let videoDOMActive = false;
+
+function activateVideoDom(video) {
+  video.style.cssText = 'position:absolute;top:0;left:0;transform-origin:0 0;pointer-events:none;z-index:0;';
+  container.insertBefore(video, mapCanvas);
+  videoDOMActive = true;
+  if (usePixi && !isPlayer) {
+    pixiHideMap();
+    mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+  }
+  syncVideoDomTransform();
+}
+
+function deactivateVideoDom() {
+  videoDOMActive = false;
+  if (usePixi) pixiShowMap();
+  if (mapVideo && mapVideo.parentNode === container) {
+    mapVideo.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;opacity:0';
+  }
+}
+
+function syncVideoDomTransform() {
+  if (!videoDOMActive || !mapVideo) return;
+  mapVideo.style.width  = mapWidth  + 'px';
+  mapVideo.style.height = mapHeight + 'px';
+  mapVideo.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')';
+}
+
+// ─── Video map loading ────────────────────────────────────────────────────────
+function stopVideoLoop() {
+  videoEnabled = false;
+  if (videoRAFId) { cancelAnimationFrame(videoRAFId); videoRAFId = null; }
+  if (videoRVFCId != null && mapVideo && mapVideo.cancelVideoFrameCallback) {
+    mapVideo.cancelVideoFrameCallback(videoRVFCId); videoRVFCId = null;
+  }
+}
+
+function showMapProgress(label) {
+  document.getElementById('map-progress-label').textContent = label || 'Salvando...';
+  document.getElementById('map-progress-bar').style.width = '0%';
+  document.getElementById('map-progress').style.display = 'flex';
+}
+function updateMapProgress(pct) {
+  document.getElementById('map-progress-bar').style.width = Math.min(100, pct) + '%';
+}
+function hideMapProgress() {
+  document.getElementById('map-progress').style.display = 'none';
+}
+
+if (window.electronAPI && window.electronAPI.onVideoSaveProgress) {
+  window.electronAPI.onVideoSaveProgress(({ written, total }) => {
+    updateMapProgress(Math.round((written / total) * 100));
+  });
+}
+
+function cleanupVideo() {
+  deactivateVideoDom();
+  stopVideoLoop();
+  if (mapVideo) {
+    mapVideo.removeEventListener('pause', onVideoPause);
+    mapVideo.removeEventListener('playing', onVideoPlaying);
+    mapVideo.pause(); mapVideo.src = '';
+    if (mapVideo.parentNode) mapVideo.parentNode.removeChild(mapVideo);
+    mapVideo = null;
+  }
+  if (mapVideoUrl) {
+    if (mapVideoUrl.startsWith('blob:')) URL.revokeObjectURL(mapVideoUrl);
+    mapVideoUrl = null;
+  }
+  mapVideoBlob = null;
+  if (usePixi) pixiStopVideoTextureSync();
+  playerMapTexCanvas = null;
+  playerMapTexCtx = null;
+}
+
+function onVideoPause() {
+  if (!videoEnabled || !mapVideo) return;
+  mapVideo.play().catch(() => {});
+}
+
+function onVideoPlaying() {
+  if (!videoEnabled || !mapVideo) return;
+  if (videoRVFCId == null && videoRAFId == null) scheduleVideoFrame();
+}
+
+function attachVideoListeners(video) {
+  video.addEventListener('pause', onVideoPause);
+  video.addEventListener('playing', onVideoPlaying);
+}
+
+function scheduleVideoFrame() {
+  if (!videoEnabled || !mapVideo) return;
+  if (mapVideo.requestVideoFrameCallback) {
+    videoRVFCId = mapVideo.requestVideoFrameCallback(function() {
+      videoRVFCId = null;
+      if (!videoEnabled || !mapVideo) return;
+      var now = performance.now();
+      if (now - videoLastRenderTs >= VIDEO_MIN_FRAME_INTERVAL) {
+        videoLastRenderTs = now;
+        mapDirty = true;
+        scheduleRender();
+      }
+      scheduleVideoFrame();
+    });
+  } else {
+    videoRAFId = requestAnimationFrame(function() {
+      videoRAFId = null;
+      if (!videoEnabled || !mapVideo) return;
+      if (!mapVideo.paused && !mapVideo.ended) {
+        var now = performance.now();
+        if (now - videoLastRenderTs >= VIDEO_MIN_FRAME_INTERVAL) {
+          videoLastRenderTs = now;
+          mapDirty = true;
+          scheduleRender();
+        }
+      }
+      scheduleVideoFrame();
+    });
+  }
+}
+
+function startVideoLoop() {
+  if (!mapVideo) return;
+  stopVideoLoop();
+  videoEnabled = true;
+  videoLastRenderTs = 0;
+  if (!isPlayer) activateVideoDom(mapVideo);
+  if (mapVideo.paused || mapVideo.ended) {
+    mapVideo.play().catch(function() {});
+  }
+}
+
+function loadVideoFromFile(file, onVideoLoaded) {
+  if (!file) return;
+  cleanupVideo();
+  const url = URL.createObjectURL(file);
+  mapVideoUrl = url;
+  const video = document.createElement('video');
+  video.muted = true;
+  video.loop = true;
+  video.playsInline = true;
+  video.preload = 'auto';
+  video.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;opacity:0';
+  document.body.appendChild(video);
+  let settled = false;
+  function failLoad(reason) {
+    if (settled) return;
+    settled = true;
+    video.onerror = null; video.oncanplay = null;
+    video.pause(); video.src = '';
+    if (video.parentNode) video.parentNode.removeChild(video);
+    cleanupVideo();
+    alert('Falha ao carregar o vídeo do mapa.' + (reason ? ' ' + reason : ''));
+  }
+  video.onerror = () => failLoad();
+  video.oncanplay = function() {
+    if (settled) return;
+    settled = true;
+    video.onerror = null; video.oncanplay = null;
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    mapWidth  = vw;
+    mapHeight = vh;
+
+    function finishLoad() {
+      // Extract frame 0 as static fallback + thumbnail source
+      const extractCanvas = document.createElement('canvas');
+      extractCanvas.width = vw; extractCanvas.height = vh;
+      extractCanvas.getContext('2d').drawImage(video, 0, 0, vw, vh);
+
+      if (mapBitmap) { mapBitmap.close(); mapBitmap = null; }
+      mapOffscreen = extractCanvas;
+      if (usePixi) {
+        pixiSetMap(extractCanvas, vw, vh);
+        pixiHideMap();
+      }
+      mapVideo = video;
+      attachVideoListeners(video);
+      mapVideoBlob = file;
+
+      fogDataCanvas = document.createElement('canvas');
+      fogDataCanvas.width  = Math.ceil(mapWidth  / FOG_SCALE);
+      fogDataCanvas.height = Math.ceil(mapHeight / FOG_SCALE);
+      fogDataCtx = fogDataCanvas.getContext('2d');
+      fogDataCtx.fillStyle = '#1a1a2e';
+      fogDataCtx.fillRect(0, 0, fogDataCanvas.width, fogDataCanvas.height);
+
+      baseFogCanvas = document.createElement('canvas');
+      baseFogCanvas.width = fogDataCanvas.width;
+      baseFogCanvas.height = fogDataCanvas.height;
+      baseFogCtx = baseFogCanvas.getContext('2d');
+      baseFogCtx.fillStyle = '#1a1a2e';
+      baseFogCtx.fillRect(0, 0, baseFogCanvas.width, baseFogCanvas.height);
+
+      polygons = []; activePolygon = null; selectedPolygonId = null;
+      nextPolygonId = 1;
+      playerMapSent = false;
+
+      if (!cloudPattern) generateCloudFrames(512, CLOUD_FRAME_COUNT);
+      rebuildFogEffect();
+      if (usePixi && !isPlayer) { pixiInitFog(fogDataCanvas, fogBlurCanvas, cloudBlendCanvas, mapWidth, mapHeight); pixiFlushTexturePool(); pixiUpdateFogBlurTexture(); }
+
+      fitToScreen();
+      if (!isPlayer) container.style.cursor = 'crosshair';
+      landing.style.display = 'none';
+      viewportDirty = true;
+      scheduleRender();
+
+      video.play().then(() => startVideoLoop()).catch(() => {});
+      if (onVideoLoaded) onVideoLoaded(extractCanvas, file);
+    }
+
+    // Seek to near-zero and wait for decoded frame before extracting
+    video.onseeked = function() {
+      video.onseeked = null;
+      finishLoad();
+    };
+    video.currentTime = 0.001;
+    // Fallback if seeked never fires (already at target position)
+    setTimeout(() => { if (video.onseeked) { video.onseeked = null; finishLoad(); } }, 2000);
+  };
+  video.src = url;
+}
+
+function isVideoFile(file) {
+  if (file.type && (file.type.startsWith('video/') || file.type === 'video/mp4' || file.type === 'video/webm')) return true;
+  return /\.(mp4|webm)$/i.test(file.name);
+}
+
+// ─── Polygon management ───────────────────────────────────────────────────────
+
+function closeActivePolygon() {
+  if (!activePolygon || activePolygon.vertices.length < 3) { activePolygon = null; drawCursor(null, null); return; }
+  pushUndo();
+  const poly = {
+    id: nextPolygonId++,
+    vertices: activePolygon.vertices,
+    mode: activePolygon.mode,
+    cornerRadius: 0,
+  };
+  polygons.push(poly);
+  applyPolygonToFog(poly);
+  activePolygon = null;
+  selectedPolygonId = poly.id;
+  drawCursor(null, null);
+  startFogTransition(poly.mode === 'shroud');
+  rebuildFogEffect();
+  fogDirty = true;
+  scheduleRender();
+  scheduleAutoSync();
+}
+
+function deleteSelectedPolygon() {
+  if (selectedPolygonId == null) return;
+  pushUndo();
+  polygons = polygons.filter(p => p.id !== selectedPolygonId);
+  selectedPolygonId = null;
+  selectedVertexIndex = -1;
+  rebuildFogFromPolygons();
+  drawCursor(null, null);
+  startFogTransition();
+  rebuildFogEffect();
+  fogDirty = true;
+  scheduleRender();
+  scheduleAutoSync();
+}
+
+function toggleSelectedPolygon() {
+  const poly = polygons.find(p => p.id === selectedPolygonId);
+  if (!poly) return;
+  pushUndo();
+  poly.mode = poly.mode === 'reveal' ? 'shroud' : 'reveal';
+  rebuildFogFromPolygons();
+  drawCursor(null, null);
+  startFogTransition(poly.mode === 'shroud');
+  rebuildFogEffect();
+  fogDirty = true;
+  scheduleRender();
+  scheduleAutoSync();
+}
+
+// ─── Undo/Redo helpers ────────────────────────────────────────────────────────
+
+function cloneCanvas(src) {
+  const c = document.createElement('canvas');
+  c.width = src.width; c.height = src.height;
+  c.getContext('2d').drawImage(src, 0, 0);
+  return c;
+}
+
+function pushUndo() {
+  if (!baseFogCanvas) return;
+  undoStack.push({
+    baseFog: cloneCanvas(baseFogCanvas),
+    polygons: polygons.map(p => ({ ...p, vertices: p.vertices.map(v => ({ ...v })) })),
+    nextPolygonId,
+  });
+  redoStack = [];
+  while (undoStack.length > 1 &&
+         undoStack.reduce((s, e) => s + e.baseFog.width * e.baseFog.height * 4, 0) > UNDO_MAX_BYTES) {
+    undoStack.shift();
+  }
+}
+
+function restoreState(snapshot) {
+  baseFogCanvas = cloneCanvas(snapshot.baseFog);
+  baseFogCtx = baseFogCanvas.getContext('2d');
+  polygons = snapshot.polygons.map(p => ({ ...p, vertices: p.vertices.map(v => ({ ...v })) }));
+  nextPolygonId = snapshot.nextPolygonId;
+  selectedPolygonId = null;
+  selectedVertexIndex = -1;
+  activePolygon = null;
+  rebuildFogFromPolygons();
+  rebuildFogEffect();
+  fogDirty = true;
+  scheduleRender();
+  scheduleAutoSync();
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  redoStack.push({
+    baseFog: cloneCanvas(baseFogCanvas),
+    polygons: polygons.map(p => ({ ...p, vertices: p.vertices.map(v => ({ ...v })) })),
+    nextPolygonId,
+  });
+  restoreState(undoStack.pop());
+}
+
+function redo() {
+  if (!redoStack.length) return;
+  undoStack.push({
+    baseFog: cloneCanvas(baseFogCanvas),
+    polygons: polygons.map(p => ({ ...p, vertices: p.vertices.map(v => ({ ...v })) })),
+    nextPolygonId,
+  });
+  restoreState(redoStack.pop());
+}
+
+// ─── Auto-Sync helper ─────────────────────────────────────────────────────────
+
+function scheduleAutoSync() {
+  scheduleAutoSave();
+  if (!autoSync) return;
+  clearTimeout(autoSyncTimer);
+  autoSyncTimer = setTimeout(() => sendToPlayer(true), 300);
+}
+
+// ─── Scene helpers ────────────────────────────────────────────────────────────
+
+const thumbURLs = new Map(); // scene id → blob URL for thumbnail display
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function captureGridConfig() {
+  return { enabled: gridEnabled, cellSize: gridSize, offsetX: gridOffsetX, offsetY: gridOffsetY, color: gridColor, opacity: gridOpacity, mode: gridMode, lineWidth: gridLineWidth };
+}
+
+function applyGridConfig(cfg) {
+  if (!cfg) return;
+  gridEnabled   = cfg.enabled   ?? gridEnabled;
+  gridSize      = cfg.cellSize  ?? gridSize;
+  gridOffsetX   = cfg.offsetX   ?? gridOffsetX;
+  gridOffsetY   = cfg.offsetY   ?? gridOffsetY;
+  gridColor     = cfg.color     ?? gridColor;
+  gridOpacity   = cfg.opacity   ?? gridOpacity;
+  gridMode      = cfg.mode      ?? gridMode;
+  gridLineWidth = cfg.lineWidth ?? gridLineWidth;
+  if (!isPlayer) {
+    document.getElementById('btn-grid').classList.toggle('active', gridEnabled);
+    document.getElementById('grid-size').value                = gridSize;
+    document.getElementById('grid-size-num').value            = gridSize;
+    document.getElementById('grid-offset-x').value            = gridOffsetX;
+    document.getElementById('grid-offset-x-num').value        = gridOffsetX;
+    document.getElementById('grid-offset-y').value            = gridOffsetY;
+    document.getElementById('grid-offset-y-num').value        = gridOffsetY;
+    document.getElementById('grid-color').value               = gridColor;
+    document.getElementById('grid-opacity').value             = Math.round(gridOpacity * 100);
+    document.getElementById('grid-opacity-num').value         = Math.round(gridOpacity * 100);
+    document.getElementById('grid-thickness').value           = gridLineWidth;
+    document.getElementById('grid-thickness-num').value       = gridLineWidth;
+    document.querySelectorAll('.grid-mode-btn').forEach(b => b.classList.remove('active'));
+    const mk = gridMode === 'square' ? 'sq' : gridMode === 'hex-flat' ? 'hflat' : 'hptop';
+    document.getElementById('btn-grid-' + mk).classList.add('active');
+  }
+  gridDirty = true;
+}
+
+function generateThumbnail(bitmap, w, h) {
+  const W = 400, H = Math.round(W * h / w);
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  c.getContext('2d').drawImage(bitmap, 0, 0, W, H);
+  return new Promise(r => c.toBlob(r, 'image/jpeg', 0.8));
+}
+
+
+function renderSceneManager() {
+  const ids = new Set(allScenes.map(s => s.id));
+  for (const [id, url] of thumbURLs) {
+    if (!ids.has(id)) { URL.revokeObjectURL(url); thumbURLs.delete(id); }
+  }
+  for (const s of allScenes) {
+    if (!thumbURLs.has(s.id) && s.thumbnail) thumbURLs.set(s.id, URL.createObjectURL(s.thumbnail));
+  }
+  const grid = document.getElementById('sm-grid');
+  if (!grid) return;
+  if (!allScenes.length) {
+    grid.innerHTML = '<div id="sm-empty">Nenhuma cena ainda — clique em + Nova cena para adicionar</div>';
+    return;
+  }
+  grid.innerHTML = '';
+  for (const s of allScenes) {
+    const isActive = currentScene && currentScene.id === s.id;
+    const card = document.createElement('div');
+    card.className = 'sm-card' + (isActive ? ' active' : '');
+    card.dataset.id = s.id;
+    const thumbSrc = thumbURLs.get(s.id) || '';
+    const overlayInner = isActive
+      ? '<span class="sm-card-overlay-label">Atual</span>'
+      : '<button class="sm-card-load-btn" tabindex="-1">Carregar</button>';
+    card.innerHTML =
+      '<div class="sm-card-thumb-wrap">' +
+        '<img class="sm-card-thumb" src="' + escHtml(thumbSrc) + '" alt="">' +
+        '<div class="sm-card-overlay">' + overlayInner + '</div>' +
+      '</div>' +
+      '<button class="sm-card-rename" title="Renomear cena"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' +
+      '<button class="sm-card-del" title="Apagar cena"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button>' +
+      '<div class="sm-card-footer"><div class="sm-card-name"></div></div>';
+    card.querySelector('.sm-card-name').textContent = s.name;
+    card.onclick = e => {
+      if (e.target.closest('.sm-card-del') || e.target.closest('.sm-card-rename')) return;
+      closeSceneManager();
+      switchScene(s.id).catch(err => console.error('switchScene failed:', err));
+    };
+    card.querySelector('.sm-card-rename').onclick = e => { e.stopPropagation(); startRenameScene(s.id); };
+    card.querySelector('.sm-card-del').onclick = e => { e.stopPropagation(); confirmDeleteScene(s.id); };
+    grid.appendChild(card);
+  }
+}
+
+function openSceneManager() {
+  doAutoSave(); // persist current fog state before user might switch
+  document.getElementById('scene-manager-backdrop').style.display = '';
+  document.getElementById('scene-manager').style.display = '';
+  renderSceneManager();
+}
+
+function closeSceneManager() {
+  document.getElementById('scene-manager-backdrop').style.display = 'none';
+  document.getElementById('scene-manager').style.display = 'none';
+}
+
+async function initScenes() {
+  try { await sceneStore.initSceneDB(); }
+  catch (err) { console.warn('IndexedDB unavailable, scene persistence disabled:', err); return; }
+  allScenes = await sceneStore.listScenes();
+  allScenes.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  renderSceneManager();
+  const lastId = localStorage.getItem('evermist-current-scene-id');
+  if (lastId && allScenes.find(s => s.id === lastId)) await switchScene(lastId);
+}
+
+async function createNewScene(file) {
+  if (!isVideoFile(file)) showMapProgress('Carregando mapa…');
+  if (currentScene) doAutoSave();
+  cleanupVideo();
+  const name = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ').trim() || 'Nova cena';
+  const maxOrder = allScenes.length > 0 ? Math.max(...allScenes.map(s => s.sortOrder ?? 0)) : -1;
+  const isVid = isVideoFile(file);
+  const onLoaded = async (bitmap, blob) => {
+    const thumb = await generateThumbnail(bitmap, mapWidth, mapHeight);
+    const id = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : Date.now().toString(36) + Math.random().toString(36).slice(2);
+
+    let mapBlob = undefined;
+    let mapPath = undefined;
+    if (isVid && window.electronAPI) {
+      showMapProgress('Salvando vídeo do mapa…');
+      const mimeType = file.type || (file.name.endsWith('.mp4') ? 'video/mp4' : 'video/webm');
+      const ext = mimeType === 'video/mp4' ? '.mp4' : '.webm';
+      await window.electronAPI.saveVideoFile(file.path, id, mimeType);
+      hideMapProgress();
+      mapPath = 'maps/' + id + ext;
+    } else {
+      mapBlob = isVid ? mapVideoBlob : blob;
+    }
+
+    const scene = {
+      id, name,
+      mapBlob, mapPath,
+      mapType:       isVid ? 'video' : 'image',
+      mapWidth, mapHeight,
+      polygons:      [],
+      nextPolygonId: 1,
+      baseFogBlob:   await fogToBlob(),
+      gridConfig:    captureGridConfig(),
+      thumbnail:     thumb,
+      createdAt:     Date.now(),
+      sortOrder:     maxOrder + 1,
+    };
+    allScenes.push({ id, name, thumbnail: thumb, sortOrder: scene.sortOrder, createdAt: scene.createdAt });
+    await sceneStore.saveScene(scene);
+    hideMapProgress();
+    // Reload through the proven scene-switch path. The direct drop-load path leaves the
+    // PixiJS fog/video uninitialised until a manual switch (map renders fully revealed,
+    // shroud has no effect, video frozen). switchScene() rebuilds everything correctly.
+    currentScene = null;
+    await switchScene(id);
+  };
+  if (isVid) loadVideoFromFile(file, onLoaded);
+  else loadMapFromFile(file, onLoaded);
+}
+
+async function replaceSceneMap(file) {
+  if (!currentScene) { createNewScene(file); return; }
+  cleanupVideo();
+  const isVid = isVideoFile(file);
+  const onLoaded = async (bitmap, blob) => {
+    if (isVid && window.electronAPI) {
+      // Delete old video file if this scene had one
+      if (currentScene.mapPath) {
+        window.electronAPI.deleteVideoFile(currentScene.id).catch(() => {});
+      }
+      showMapProgress('Salvando vídeo do mapa…');
+      const mimeType = file.type || (file.name.endsWith('.mp4') ? 'video/mp4' : 'video/webm');
+      const ext = mimeType === 'video/mp4' ? '.mp4' : '.webm';
+      await window.electronAPI.saveVideoFile(file.path, currentScene.id, mimeType);
+      hideMapProgress();
+      currentScene.mapPath = 'maps/' + currentScene.id + ext;
+      currentScene.mapBlob = undefined;
+    } else {
+      currentScene.mapBlob = isVid ? mapVideoBlob : blob;
+      currentScene.mapPath = undefined;
+    }
+    currentScene.mapType    = isVid ? 'video' : 'image';
+    currentScene.mapWidth   = mapWidth;
+    currentScene.mapHeight  = mapHeight;
+    currentScene.baseFogBlob = await fogToBlob();
+    const thumb = await generateThumbnail(bitmap, mapWidth, mapHeight);
+    currentScene.thumbnail = thumb;
+    const meta = allScenes.find(s => s.id === currentScene.id);
+    if (meta) meta.thumbnail = thumb;
+    await sceneStore.saveScene(currentScene);
+    renderSceneManager();
+    // Reload through the proven scene-switch path (see createNewScene): the direct
+    // drop-load path leaves PixiJS fog/video uninitialised until a manual switch.
+    const sid = currentScene.id;
+    currentScene = null;
+    await switchScene(sid);
+  };
+  if (isVid) loadVideoFromFile(file, onLoaded);
+  else loadMapFromFile(file, onLoaded);
+}
+
+async function switchScene(id, _isRecovery = false) {
+  if (currentScene && currentScene.id === id) return;
+  const myGen = ++switchGeneration;
+  if (currentScene) doAutoSave();
+  const prevId = currentScene ? currentScene.id : null;
+  currentScene = null;
+  cleanupVideo();
+  if (typeof rulerClearAll === 'function') rulerClearAll(); // ruler annotations don't carry across maps
+  if (typeof tokensClearAll === 'function') tokensClearAll(); // tokens are map-specific too
+  if (typeof aoeClearAll === 'function') aoeClearAll(); // areas too
+  if (typeof drawClearAll === 'function') drawClearAll(); // pings/traçados/riscos too
+  // Abort any in-flight reveal/shroud crossfade from the outgoing scene so its
+  // tick can't keep running against orphaned snapshot canvases. The drifting
+  // anim loop is persistent + idempotent — leave it running across the switch.
+  stopFogTransition();
+  if (!isPlayer && playerWindow && !playerWindow.closed) {
+    const destMeta = allScenes.find(s => s.id === id);
+    playerWindow.postMessage({ type: 'scene-transition', phase: 'out', sceneName: destMeta ? destMeta.name : null }, '*');
+  }
+  try {
+  const scene = await sceneStore.loadScene(id);
+  if (myGen !== switchGeneration) return;
+  if (!scene) throw new Error('Scene not found.');
+
+  if (mapBitmap) { mapBitmap.close(); mapBitmap = null; }
+  mapWidth   = scene.mapWidth;
+  mapHeight  = scene.mapHeight;
+
+  // Lazy migration: move legacy IDB video blob to filesystem on first access
+  if (scene.mapType === 'video' && scene.mapBlob && !scene.mapPath && window.electronAPI) {
+    showMapProgress('Migrando vídeo para o disco…');
+    const ab = await scene.mapBlob.arrayBuffer();
+    if (myGen !== switchGeneration) return;
+    const mime = scene.mapBlob.type || 'video/webm';
+    const ext = mime === 'video/mp4' ? '.mp4' : '.webm';
+    await window.electronAPI.saveVideoBlob(scene.id, ab, mime);
+    if (myGen !== switchGeneration) return;
+    scene.mapPath = 'maps/' + scene.id + ext;
+    scene.mapBlob = undefined;
+    await sceneStore.saveScene(scene);
+    if (myGen !== switchGeneration) return;
+    hideMapProgress();
+  }
+
+  if (scene.mapType === 'video') {
+    if (scene.mapPath && window.electronAPI) {
+      const absPath = await window.electronAPI.getVideoFilePath(scene.id);
+      if (myGen !== switchGeneration) return;
+      if (!absPath) throw new Error('Video file missing — it may have been moved or deleted.');
+      mapVideoUrl = 'file:///' + absPath.replace(/\\/g, '/');
+    } else if (scene.mapBlob) {
+      mapVideoUrl = URL.createObjectURL(scene.mapBlob);
+    } else {
+      throw new Error('Video data not found for this scene.');
+    }
+    const video = document.createElement('video');
+    video.muted = true; video.loop = true; video.playsInline = true; video.preload = 'auto';
+    video.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;opacity:0';
+    document.body.appendChild(video);
+    await new Promise((resolve, reject) => {
+      let settled = false;
+      video.onerror = () => {
+        if (settled) return;
+        settled = true;
+        video.onerror = null; video.oncanplay = null;
+        video.pause(); video.src = '';
+        if (video.parentNode) video.parentNode.removeChild(video);
+        cleanupVideo();
+        reject(new Error('Video load failed'));
+      };
+      video.oncanplay = function() {
+        if (settled) return;
+        settled = true;
+        video.onerror = null; video.oncanplay = null;
+        resolve();
+      };
+      video.src = mapVideoUrl;
+    });
+    if (myGen !== switchGeneration) {
+      video.pause(); video.src = '';
+      if (video.parentNode) video.parentNode.removeChild(video);
+      return;
+    }
+    // Seek to near-zero and wait for decoded frame before extracting
+    await new Promise(resolve => {
+      video.onseeked = function() { video.onseeked = null; resolve(); };
+      video.currentTime = 0.001;
+      setTimeout(() => { if (video.onseeked) { video.onseeked = null; resolve(); } }, 2000);
+    });
+    if (myGen !== switchGeneration) {
+      video.pause(); video.src = '';
+      if (video.parentNode) video.parentNode.removeChild(video);
+      return;
+    }
+    const extractCanvas = document.createElement('canvas');
+    extractCanvas.width = mapWidth; extractCanvas.height = mapHeight;
+    extractCanvas.getContext('2d').drawImage(video, 0, 0, mapWidth, mapHeight);
+    mapOffscreen = extractCanvas;
+    if (usePixi) {
+      pixiSetMap(extractCanvas, mapWidth, mapHeight);
+      pixiHideMap();
+    }
+    mapVideo = video;
+    attachVideoListeners(video);
+    mapVideoBlob = scene.mapBlob || null;
+
+    // Fog canvases (needs mapWidth/mapHeight, already set above)
+    fogDataCanvas = document.createElement('canvas');
+    fogDataCanvas.width  = Math.ceil(mapWidth  / FOG_SCALE);
+    fogDataCanvas.height = Math.ceil(mapHeight / FOG_SCALE);
+    fogDataCtx = fogDataCanvas.getContext('2d');
+    baseFogCanvas = document.createElement('canvas');
+    baseFogCanvas.width  = fogDataCanvas.width;
+    baseFogCanvas.height = fogDataCanvas.height;
+    baseFogCtx = baseFogCanvas.getContext('2d');
+
+    await loadFogFromScene(scene);
+    if (myGen !== switchGeneration) return;
+  } else {
+    // Fog canvases created before bitmap await — only needs mapWidth/mapHeight
+    fogDataCanvas = document.createElement('canvas');
+    fogDataCanvas.width  = Math.ceil(mapWidth  / FOG_SCALE);
+    fogDataCanvas.height = Math.ceil(mapHeight / FOG_SCALE);
+    fogDataCtx = fogDataCanvas.getContext('2d');
+    baseFogCanvas = document.createElement('canvas');
+    baseFogCanvas.width  = fogDataCanvas.width;
+    baseFogCanvas.height = fogDataCanvas.height;
+    baseFogCtx = baseFogCanvas.getContext('2d');
+
+    // Decode map bitmap and fog simultaneously
+    const [bitmap] = await Promise.all([
+      createImageBitmap(scene.mapBlob),
+      loadFogFromScene(scene),
+    ]);
+    if (myGen !== switchGeneration) { bitmap.close(); return; }
+
+    mapOffscreen = document.createElement('canvas');
+    mapOffscreen.width  = mapWidth;
+    mapOffscreen.height = mapHeight;
+    mapOffscreen.getContext('2d').drawImage(bitmap, 0, 0);
+    if (usePixi) {
+      pixiSetMap(mapOffscreen, mapWidth, mapHeight);
+      bitmap.close();
+      mapBitmap = null;
+    } else {
+      mapBitmap = bitmap;
+    }
+  }
+
+  // Progressive render (DM only): show map immediately while fog rebuilds below.
+  // fogDataCanvas/baseFogCanvas are already filled so the render pipeline is safe.
+  if (!isPlayer) {
+    fitToScreen();
+    viewportDirty = true; gridDirty = true; fogDirty = true;
+    scheduleRender();
+    landing.style.display = 'none';
+    container.style.cursor = 'crosshair';
+  }
+
+  polygons      = (scene.polygons || []).map(p => ({ ...p, vertices: p.vertices.map(v => ({ ...v })) }));
+  nextPolygonId = scene.nextPolygonId || 1;
+  selectedPolygonId   = null;
+  selectedVertexIndex = -1;
+  activePolygon = null;
+  if (scene.gridConfig) applyGridConfig(scene.gridConfig);
+
+  rebuildFogFromPolygons();
+  if (!cloudPattern) generateCloudFrames(512, CLOUD_FRAME_COUNT);
+  rebuildFogEffect();
+  if (usePixi && !isPlayer) { pixiInitFog(fogDataCanvas, fogBlurCanvas, cloudBlendCanvas, mapWidth, mapHeight); pixiFlushTexturePool(); }
+
+  undoStack = []; redoStack = [];
+  playerMapSent = false;
+  currentScene = scene;
+  localStorage.setItem('evermist-current-scene-id', id);
+  landing.style.display = 'none';
+  if (!isPlayer) container.style.cursor = 'crosshair';
+  fitToScreen();
+  viewportDirty = true; gridDirty = true; fogDirty = true;
+  scheduleRender();
+  renderSceneManager();
+  if (mapVideo) mapVideo.play().then(() => startVideoLoop()).catch(() => {});
+  if (autoSync) setTimeout(() => sendToPlayer(false, true), 150);
+  onSceneLoaded(); // viewport.js: flush pending player resync if Player asked while loading
+  } catch (err) {
+    if (myGen !== switchGeneration) return;
+    mapOffscreen = null;
+    fogDataCanvas = null; fogDataCtx = null;
+    baseFogCanvas = null; baseFogCtx = null;
+    cleanupVideo();
+    onSwitchSceneError(prevId, _isRecovery, err); // scenes.js
+  }
+}
+
+function startRenameScene(id) {
+  const card = document.querySelector('.sm-card[data-id="' + id + '"]');
+  if (!card) return;
+  const nameEl = card.querySelector('.sm-card-name');
+  const s = allScenes.find(x => x.id === id);
+  if (!s) return;
+  const input = document.createElement('input');
+  input.className = 'sm-card-name-input';
+  input.value = s.name;
+  nameEl.replaceWith(input);
+  input.focus(); input.select();
+  const commit = () => {
+    const newName = input.value.trim() || s.name;
+    s.name = newName;
+    if (currentScene && currentScene.id === id) currentScene.name = newName;
+    sceneStore.loadScene(id).then(sc => { if (sc) { sc.name = newName; sceneStore.saveScene(sc); } });
+    renderSceneManager();
+  };
+  input.onblur = commit;
+  input.onkeydown = e => {
+    if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = s.name; input.blur(); }
+  };
+}
+
+async function confirmDeleteScene(id) {
+  const s = allScenes.find(x => x.id === id);
+  if (!confirm('Apagar a cena "' + (s ? s.name : id) + '"? Isso não pode ser desfeito.')) return;
+  await sceneStore.deleteScene(id);
+  if (window.electronAPI) {
+    window.electronAPI.deleteVideoFile(id).catch(() => {});
+  }
+  allScenes = allScenes.filter(x => x.id !== id);
+  if (thumbURLs.has(id)) { URL.revokeObjectURL(thumbURLs.get(id)); thumbURLs.delete(id); }
+  if (currentScene && currentScene.id === id) {
+    currentScene = null;
+    cleanupVideo();
+    mapBitmap = null; mapOffscreen = null; mapWidth = 0; mapHeight = 0;
+    polygons = []; nextPolygonId = 1;
+    landing.style.display = '';
+    if (!isPlayer) container.style.cursor = 'default';
+    if (allScenes.length) await switchScene(allScenes[0].id);
+  }
+  renderSceneManager();
+}
+
+async function moveScene(id, dir) {
+  const idx = allScenes.findIndex(s => s.id === id);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= allScenes.length) return;
+  [allScenes[idx], allScenes[newIdx]] = [allScenes[newIdx], allScenes[idx]];
+  allScenes.forEach((s, i) => { s.sortOrder = i; });
+  for (const s of allScenes) {
+    sceneStore.loadScene(s.id).then(sc => { if (sc) { sc.sortOrder = s.sortOrder; sceneStore.saveScene(sc); } });
+  }
+  renderSceneManager();
+}
+
+// ─── Canvas sizing ────────────────────────────────────────────────────────────
+function syncSize() {
+  const cw = container.clientWidth;
+  const ch = container.clientHeight;
+  const _sizableCanvases = [mapCanvas, fogCanvas, gridCanvasEl, tokenCanvas, cursorCanvas];
+  if (playerGridCanvas) _sizableCanvases.push(playerGridCanvas);
+  for (const c of _sizableCanvases) {
+    if (c.style.display === 'none') continue;
+    if (c.width !== cw || c.height !== ch) {
+      c.width  = cw;
+      c.height = ch;
+    }
+  }
+  if (usePixi) pixiResize(cw, ch);
+}
+
+// ─── Rendering — split into per-layer functions ───────────────────────────────
+
+function scheduleRender() {
+  if (!renderScheduled) {
+    renderScheduled = true;
+    requestAnimationFrame(doRender);
+  }
+}
+
+function getViewportSize() {
+  if (usePixi && pixiApp) return { w: pixiApp.renderer.width, h: pixiApp.renderer.height };
+  return { w: mapCanvas.width, h: mapCanvas.height };
+}
+
+function calcViewport() {
+  const { w: cw, h: ch } = getViewportSize();
+  const srcX = Math.max(0, -panX / zoom);
+  const srcY = Math.max(0, -panY / zoom);
+  const srcW = Math.min(mapWidth  - srcX, cw / zoom);
+  const srcH = Math.min(mapHeight - srcY, ch / zoom);
+  const dstX = Math.max(0, panX);
+  const dstY = Math.max(0, panY);
+  const dstW = srcW * zoom;
+  const dstH = srcH * zoom;
+  return { cw, ch, srcX, srcY, srcW, srcH, dstX, dstY, dstW, dstH };
+}
+
+function renderMap(mapSource, vp) {
+  mapCtx.clearRect(0, 0, vp.cw, vp.ch);
+  if (vp.srcW > 0 && vp.srcH > 0) {
+    mapCtx.drawImage(mapSource,
+      vp.srcX, vp.srcY, vp.srcW, vp.srcH,
+      vp.dstX, vp.dstY, vp.dstW, vp.dstH);
+    // In Player view the grid lives on the map canvas so the fog layer above it
+    // naturally masks it — no destination-out compositing needed, no edge artifacts.
+    if (isPlayer && gridEnabled) drawGridLines(mapCtx, vp);
+  }
+}
+
+// Shared grid-drawing primitive used by both renderGrid (DM) and renderMap (Player).
+function drawGridLines(ctx, vp) {
+  const step = gridSize * zoom;
+  if (step < 4 || vp.srcW <= 0 || vp.srcH <= 0) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(vp.dstX, vp.dstY, vp.dstW, vp.dstH);
+  ctx.clip();
+  ctx.strokeStyle = gridColor;
+  ctx.globalAlpha = gridOpacity;
+  ctx.lineWidth = gridLineWidth;
+
+  if (gridMode === 'square') {
+    ctx.beginPath();
+    const c0 = Math.floor((vp.srcX - gridOffsetX) / gridSize);
+    const c1 = Math.ceil( (vp.srcX - gridOffsetX + vp.srcW) / gridSize);
+    const r0 = Math.floor((vp.srcY - gridOffsetY) / gridSize);
+    const r1 = Math.ceil( (vp.srcY - gridOffsetY + vp.srcH) / gridSize);
+    for (let c = c0; c <= c1; c++) {
+      const sx = vp.dstX + (gridOffsetX + c * gridSize - vp.srcX) * zoom;
+      ctx.moveTo(sx, vp.dstY); ctx.lineTo(sx, vp.dstY + vp.dstH);
+    }
+    for (let r = r0; r <= r1; r++) {
+      const sy = vp.dstY + (gridOffsetY + r * gridSize - vp.srcY) * zoom;
+      ctx.moveTo(vp.dstX, sy); ctx.lineTo(vp.dstX + vp.dstW, sy);
+    }
+    ctx.stroke();
+
+  } else if (gridMode === 'hex-flat') {
+    const hh = gridSize * Math.sqrt(3);
+    const colStep = 1.5 * gridSize;
+    const colMin = Math.floor((vp.srcX - gridOffsetX - gridSize * 2) / colStep);
+    const colMax = Math.ceil( (vp.srcX - gridOffsetX + vp.srcW + gridSize * 2) / colStep);
+    const rowMin = Math.floor((vp.srcY - gridOffsetY - hh) / hh);
+    const rowMax = Math.ceil( (vp.srcY - gridOffsetY + vp.srcH + hh) / hh);
+    ctx.beginPath();
+    for (let col = colMin; col <= colMax; col++) {
+      for (let row = rowMin; row <= rowMax; row++) {
+        const cx = gridOffsetX + col * colStep;
+        const cy = gridOffsetY + row * hh + (col & 1) * hh / 2;
+        for (let k = 0; k < 6; k++) {
+          const angle = Math.PI / 3 * k;
+          const px = vp.dstX + (cx + gridSize * Math.cos(angle) - vp.srcX) * zoom;
+          const py = vp.dstY + (cy + gridSize * Math.sin(angle) - vp.srcY) * zoom;
+          if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+      }
+    }
+    ctx.stroke();
+
+  } else { // hex-pointy
+    const hw = gridSize * Math.sqrt(3);
+    const rowStep = 1.5 * gridSize;
+    const colMin = Math.floor((vp.srcX - gridOffsetX - hw) / hw);
+    const colMax = Math.ceil( (vp.srcX - gridOffsetX + vp.srcW + hw) / hw);
+    const rowMin = Math.floor((vp.srcY - gridOffsetY - gridSize * 2) / rowStep);
+    const rowMax = Math.ceil( (vp.srcY - gridOffsetY + vp.srcH + gridSize * 2) / rowStep);
+    ctx.beginPath();
+    for (let row = rowMin; row <= rowMax; row++) {
+      for (let col = colMin; col <= colMax; col++) {
+        const cx = gridOffsetX + col * hw + (row & 1) * hw / 2;
+        const cy = gridOffsetY + row * rowStep;
+        for (let k = 0; k < 6; k++) {
+          const angle = Math.PI / 3 * k + Math.PI / 6;
+          const px = vp.dstX + (cx + gridSize * Math.cos(angle) - vp.srcX) * zoom;
+          const py = vp.dstY + (cy + gridSize * Math.sin(angle) - vp.srcY) * zoom;
+          if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+      }
+    }
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function renderGrid(vp) {
+  gridCtx.clearRect(0, 0, vp.cw, vp.ch);
+  // In Player view the grid is painted onto the map canvas (see renderMap),
+  // so the fog layer above it naturally hides it in shrouded areas.
+  if (isPlayer || !gridEnabled) return;
+  drawGridLines(gridCtx, vp);
+}
+
+function renderPlayerGrid(vp) {
+  if (!playerGridCtx) return;
+  playerGridCtx.clearRect(0, 0, vp.cw, vp.ch);
+  if (!gridEnabled) return;
+  drawGridLines(playerGridCtx, vp);
+}
+
+function doRender() {
+  renderScheduled = false;
+  flushBrushOps();
+  if (usePixi && !isPlayer && isDrawing) pixiUpdateFogDataTexture();
+
+  const mapSource = videoDOMActive ? null : (mapBitmap || mapOffscreen);
+  if (!videoDOMActive && !mapSource && !(usePixi && pixiMapSprite)) return;
+
+  const vp = calcViewport();
+  if (!videoDOMActive && vp.srcW <= 0 && vp.srcH <= 0) return;
+
+  if (videoDOMActive) syncVideoDomTransform();
+
+  // In Player view the grid lives on the map canvas, so any grid change needs
+  // a full map redraw rather than just the grid layer.
+  if (isPlayer && gridDirty) viewportDirty = true;
+
+  if (viewportDirty) {
+    if (usePixi) {
+      pixiSetViewport(zoom, panX, panY);
+      if (isPlayer) renderPlayerGrid(vp);
+    } else if (!videoDOMActive) {
+      renderMap(mapSource, vp);
+    } else {
+      mapCtx.clearRect(0, 0, vp.cw, vp.ch); if (isPlayer && gridEnabled) drawGridLines(mapCtx, vp);
+    }
+    renderFog(vp);
+    renderGrid(vp);
+    if (typeof drawTokens === 'function') drawTokens();
+    viewportDirty = fogDirty = gridDirty = mapDirty = tokensDirty = false;
+  } else {
+    if (mapDirty) {
+      if (usePixi) {
+        // Player video texture updates run on the PixiJS render ticker
+        // (pixiStartVideoTextureSync), not here. DM uses a DOM <video> element.
+      } else if (!videoDOMActive) {
+        renderMap(mapSource, vp);
+      } else {
+        mapCtx.clearRect(0, 0, vp.cw, vp.ch); if (isPlayer && gridEnabled) drawGridLines(mapCtx, vp);
+      }
+      mapDirty = false;
+    }
+    if (fogDirty)  { renderFog(vp); fogDirty = false; }
+    if (gridDirty) { renderGrid(vp); gridDirty = false; }
+    if (tokensDirty) { if (typeof drawTokens === 'function') drawTokens(); tokensDirty = false; }
+  }
+
+  // Re-anchor the mirrored rulers to the player's current pan/zoom (PresenceVTT).
+  if (isPlayer && typeof drawPlayerRuler === 'function') drawPlayerRuler();
+}
+
+// ─── Cursor overlay ───────────────────────────────────────────────────────────
+function toScreen(mapX, mapY) {
+  return { sx: mapX * zoom + panX, sy: mapY * zoom + panY };
+}
+
+function drawCursor(screenX, screenY) {
+  cursorCtx.clearRect(0, 0, cursorCanvas.width, cursorCanvas.height);
+  if (!mapOffscreen && !mapVideo) return;
+
+  for (const poly of polygons) {
+    const isSel = poly.id === selectedPolygonId;
+    drawPolyOutline(poly, isSel, isSel ? selectedVertexIndex : -1);
+  }
+  updatePolyContextPanel();
+
+  if (activePolygon && activePolygon.vertices.length > 0) {
+    drawActivePolyPreview(screenX, screenY);
+    return; // skip other cursor shapes while drawing polygon
+  }
+
+  // Rulers (PresenceVTT): committed measurements persist across tools; in ruler mode
+  // also suppress the tool cursor. Drawn on this same #cursor-canvas (no map/fog re-render).
+  if (typeof drawRuler === 'function') drawRuler(cursorCtx);
+  if ((typeof rulerIsOn === 'function' && rulerIsOn()) ||
+      (typeof tokenIsOn === 'function' && tokenIsOn()) ||
+      (typeof aoeIsOn === 'function' && aoeIsOn()) ||
+      (typeof drawIsOn === 'function' && drawIsOn())) return; // ruler/token/area/marking modes: no tool cursor
+
+  if (screenX == null) return;
+  const color = tool === 'reveal' ? 'rgba(255,255,255,0.8)' : 'rgba(100,160,255,0.8)';
+  cursorCtx.save();
+  cursorCtx.strokeStyle = color;
+  cursorCtx.lineWidth = 1.5;
+  cursorCtx.setLineDash([4, 3]);
+
+  if (shape === 'brush') {
+    const r = brushSize / 2;
+    cursorCtx.beginPath();
+    cursorCtx.arc(screenX, screenY, r, 0, Math.PI * 2);
+    cursorCtx.stroke();
+    cursorCtx.setLineDash([]);
+    cursorCtx.fillStyle = 'rgba(255,255,255,0.6)';
+    cursorCtx.beginPath();
+    cursorCtx.arc(screenX, screenY, 2, 0, Math.PI * 2);
+    cursorCtx.fill();
+  } else if (shape === 'rect' && isDrawing) {
+    const sx = rectStartX * zoom + panX;
+    const sy = rectStartY * zoom + panY;
+    cursorCtx.strokeRect(sx, sy, screenX - sx, screenY - sy);
+  } else if (shape === 'circle' && isDrawing && circleCenter != null) {
+    const cx = circleCenter.x * zoom + panX;
+    const cy = circleCenter.y * zoom + panY;
+    const r = Math.hypot(screenX - cx, screenY - cy);
+    cursorCtx.beginPath();
+    cursorCtx.arc(cx, cy, r, 0, Math.PI * 2);
+    cursorCtx.stroke();
+    cursorCtx.setLineDash([]);
+    cursorCtx.fillStyle = 'rgba(255,255,255,0.6)';
+    cursorCtx.beginPath();
+    cursorCtx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+    cursorCtx.fill();
+  }
+
+  cursorCtx.restore();
+}
+
+// ─── Coordinate helpers ────────────────────────────────────────────────────────
+function screenToMap(clientX, clientY) {
+  const rect = container.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left - panX) / zoom,
+    y: (clientY - rect.top  - panY) / zoom,
+  };
+}
+
+function fitToScreen() {
+  const cw = container.clientWidth;
+  const ch = container.clientHeight;
+  zoom = Math.min(cw / mapWidth, ch / mapHeight) * 0.95;
+  panX = (cw - mapWidth  * zoom) / 2;
+  panY = (ch - mapHeight * zoom) / 2;
+  if (usePixi) pixiSetViewport(zoom, panX, panY);
+}
+
+// ─── Mouse events (DM only) ────────────────────────────────────────────────────
+if (!isPlayer) {
+  container.addEventListener('mousedown', (e) => {
+    if (!mapOffscreen) return;
+    if (e.button === 1 || (e.button === 0 && e.altKey)) {
+      isPanning = true;
+      panStartX = e.clientX; panStartY = e.clientY;
+      panStartPanX = panX;   panStartPanY = panY;
+      e.preventDefault(); return;
+    }
+    if (e.button === 0 && rulerIsOn()) {
+      rulerOnDown(screenToMap(e.clientX, e.clientY));
+      drawCursor(lastScreenX, lastScreenY);
+      e.preventDefault(); return;
+    }
+    if (e.button === 0 && tokenIsOn()) {
+      tokenOnDown(screenToMap(e.clientX, e.clientY)); // create/select + start drag
+      drawCursor(lastScreenX, lastScreenY);
+      e.preventDefault(); return;
+    }
+    if (e.button === 0 && aoeIsOn()) {
+      aoeOnDown(screenToMap(e.clientX, e.clientY), e.shiftKey); // place area (Shift = pin)
+      e.preventDefault(); return;
+    }
+    if (e.button === 0 && drawIsOn()) {
+      drawOnDown(screenToMap(e.clientX, e.clientY)); // ping (click) / traçado / risco
+      e.preventDefault(); return;
+    }
+    if (e.button !== 0) return;
+    const raw = screenToMap(e.clientX, e.clientY);
+    toolMouseDown(raw, e);
+  });
+
+  container.addEventListener('mousemove', (e) => {
+    if (!mapOffscreen) return;
+    const rect = container.getBoundingClientRect();
+    lastScreenX = e.clientX - rect.left;
+    lastScreenY = e.clientY - rect.top;
+    drawCursor(lastScreenX, lastScreenY);
+    if (isPanning) {
+      panX = panStartPanX + (e.clientX - panStartX);
+      panY = panStartPanY + (e.clientY - panStartY);
+      if (usePixi) pixiSetViewport(zoom, panX, panY);
+      drawCursor(lastScreenX, lastScreenY); // redraw with updated pan values
+      viewportDirty = true;
+      scheduleRender(); return;
+    }
+    if (rulerIsOn()) {
+      rulerOnMove(screenToMap(e.clientX, e.clientY)); // updates the end point if dragging
+      drawCursor(lastScreenX, lastScreenY);
+      return; // ruler mode: skip the fog tool entirely
+    }
+    if (tokenIsOn()) {
+      tokenOnMove(screenToMap(e.clientX, e.clientY)); // moves the dragged token
+      drawCursor(lastScreenX, lastScreenY);
+      return; // token mode: skip the fog tool entirely
+    }
+    if (aoeIsOn()) {
+      aoeOnMove(screenToMap(e.clientX, e.clientY), e.shiftKey);
+      return; // area mode: skip the fog tool
+    }
+    if (drawIsOn()) {
+      drawOnMove(screenToMap(e.clientX, e.clientY)); // extend the active traçado/risco
+      return; // marking mode: skip the fog tool
+    }
+    const pos = screenToMap(e.clientX, e.clientY);
+    toolMouseMove(pos, e, lastScreenX, lastScreenY);
+  });
+
+  container.addEventListener('mouseup', (e) => {
+    if (rulerOnUp()) { drawCursor(lastScreenX, lastScreenY); return; } // releasing commits the line
+    if (tokenOnUp()) return;                                           // finalize token placement/move
+    if (aoeOnUp()) return;                                             // finalize area (pin if Shift was held)
+    if (drawOnUp()) return;                                            // commit traçado/risco (ping already dropped)
+    if (isPanning) { isPanning = false; return; }
+    const pos = screenToMap(e.clientX, e.clientY);
+    toolMouseUp(pos, e);
+  });
+
+  container.addEventListener('mouseleave', () => {
+    rulerCancelDraft();
+    tokenCancelDrag();
+    drawCursor(null, null);
+    if (isPanning) isPanning = false;
+    if (isDrawing) { isDrawing = false; lastMapX = lastMapY = null; }
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (rulerOnUp()) drawCursor(lastScreenX, lastScreenY); // commit even if released off-canvas
+    tokenOnUp();                                            // finalize token if released off-canvas
+    aoeOnUp();                                              // finalize area if released off-canvas
+    drawOnUp();                                             // commit traçado/risco if released off-canvas
+    toolWindowMouseUp();
+    if (isPanning) { isPanning = false; }
+  });
+
+  container.addEventListener('wheel', (e) => {
+    if (!mapOffscreen) return;
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
+    const newZoom = Math.max(0.02, Math.min(20, zoom * factor));
+    const rect = container.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    panX = mx - (mx - panX) * (newZoom / zoom);
+    panY = my - (my - panY) * (newZoom / zoom);
+    zoom = newZoom;
+    if (usePixi) pixiSetViewport(zoom, panX, panY);
+    drawCursor(lastScreenX, lastScreenY);
+    viewportDirty = true;
+    scheduleRender();
+  }, { passive: false });
+
+  container.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    if (tokenIsOn()) tokenOpenPopupAt(screenToMap(e.clientX, e.clientY)); // right-click opens the token menu
+    else if (typeof aoeIsOn === 'function' && aoeIsOn()) aoeDeleteAt(screenToMap(e.clientX, e.clientY)); // …or removes an area
+  });
+
+  container.addEventListener('dblclick', (e) => {
+    if (!mapOffscreen || shape !== 'select' || selectedPolygonId == null) return;
+    const raw = screenToMap(e.clientX, e.clientY);
+    toolDblClick(raw, e);
+  });
+}
+
+// ─── Shape tool helpers (top-level so keyboard handler can call them) ─────────
+
+function updateContextPanels() {
+  const brushPanel = document.getElementById('panel-brush-bottom');
+  const snapPanel  = document.getElementById('panel-snap-bottom');
+  const rulerPanel = document.getElementById('panel-ruler-bottom');
+  const aoePanel = document.getElementById('panel-aoe-bottom');
+  const drawPanel = document.getElementById('panel-draw-bottom');
+  const rOn = typeof rulerIsOn === 'function' && rulerIsOn();
+  const tOn = typeof tokenIsOn === 'function' && tokenIsOn();
+  const aOn = typeof aoeIsOn === 'function' && aoeIsOn();
+  const dOn = typeof drawIsOn === 'function' && drawIsOn();
+  if (rulerPanel) rulerPanel.style.display = rOn ? 'flex' : 'none';
+  if (aoePanel) aoePanel.style.display = aOn ? 'flex' : 'none';
+  if (drawPanel) drawPanel.style.display = dOn ? 'flex' : 'none';
+  // Token popup is a floating per-token card managed by tokens.js (tokenUpdatePopup).
+  // In ruler/token/area/marking mode the fog-tool panels step aside.
+  if (brushPanel) brushPanel.style.display = (!rOn && !tOn && !aOn && !dOn && shape === 'brush') ? 'flex' : 'none';
+  if (snapPanel)  snapPanel.style.display  = (!rOn && !tOn && !aOn && !dOn && shape !== 'brush') ? 'flex' : 'none';
+}
+
+function setShape(s) {
+  if (isPlayer) return;
+  if (typeof rulerModeOn !== 'undefined' && rulerModeOn) setRulerMode(false); // exclusive modes
+  if (typeof tokenModeOn !== 'undefined' && tokenModeOn) setTokenMode(false);
+  if (typeof aoeModeOn !== 'undefined' && aoeModeOn) setAoeMode(false);
+  if (typeof drawModeOn !== 'undefined' && drawModeOn) setDrawMode(false);
+  shape = s;
+  ['brush', 'rect', 'poly', 'circle', 'select'].forEach(sh => {
+    const el = document.getElementById('btn-' + sh);
+    if (el) el.classList.toggle('active', sh === s);
+  });
+  if (s !== 'poly') activePolygon = null;
+  if (s !== 'select') selectedVertexIndex = -1;
+  circleCenter = null;
+  container.style.cursor = s === 'select' ? 'default' : 'crosshair';
+  drawCursor(lastScreenX, lastScreenY);
+  updateContextPanels();
+}
+
+// ─── Toolbar ──────────────────────────────────────────────────────────────────
+if (!isPlayer) {
+  const fileInput = document.getElementById('file-input');
+
+  // Scene manager modal
+  document.getElementById('btn-scenes').onclick = () => openSceneManager();
+  document.getElementById('btn-backup-export').onclick = () => openExportModal();
+  document.getElementById('btn-backup-restore').onclick = () => doRestore();
+  document.getElementById('btn-profile-export').onclick = () => exportProfile();
+  document.getElementById('btn-profile-import').onclick = () => importProfile();
+  document.getElementById('btn-sm-close').onclick = () => closeSceneManager();
+  document.getElementById('scene-manager-backdrop').onclick = () => closeSceneManager();
+  document.getElementById('btn-sm-new').onclick = () => { fileInput.click(); };
+  fileInput.onchange = e => {
+    const f = e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    createNewScene(f);
+  };
+
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => {
+    e.preventDefault();
+    const f = e.dataTransfer.files[0];
+    if (f && (f.type.startsWith('image/') || f.type.startsWith('video/') || /\.(jpe?g|png|gif|bmp|webp|svg|mp4|webm)$/i.test(f.name))) createNewScene(f);
+  });
+
+  document.getElementById('btn-reveal').onclick = function() {
+    tool = 'reveal'; this.classList.add('active');
+    document.getElementById('btn-shroud').classList.remove('active');
+  };
+  document.getElementById('btn-shroud').onclick = function() {
+    tool = 'shroud'; this.classList.add('active');
+    document.getElementById('btn-reveal').classList.remove('active');
+  };
+  document.getElementById('btn-brush').onclick  = () => setShape('brush');
+  document.getElementById('btn-rect').onclick   = () => setShape('rect');
+  document.getElementById('btn-poly').onclick   = () => setShape('poly');
+  document.getElementById('btn-circle').onclick = () => setShape('circle');
+  document.getElementById('btn-select').onclick = () => setShape('select');
+  document.getElementById('btn-ruler').onclick       = () => toggleRulerMode();
+  document.getElementById('btn-ruler-share').onclick = () => toggleRulerShareToPlayers();
+  document.getElementById('btn-ruler-clear').onclick = () => rulerClearAll();
+  document.getElementById('btn-token').onclick        = () => toggleTokenMode();
+  document.getElementById('btn-token-delete').onclick = () => deleteSelectedToken();
+  document.getElementById('token-size').oninput = function() {
+    setSelectedTokenSize(parseFloat(this.value) * gridSize); // value is in cells
+    const v = document.getElementById('token-size-val'); if (v) v.textContent = this.value + 'c';
+  };
+  document.getElementById('token-name').oninput  = function() { setSelectedTokenLabel(this.value); };
+  document.getElementById('token-color').oninput = function() { setSelectedTokenColor(this.value); };
+  tokenBuildPopup(); // populate the condition list + range-band chips from conditions.js
+  document.getElementById('btn-aoe').onclick = () => toggleAoeMode();
+  document.getElementById('btn-aoe-clear').onclick = () => aoeClearAll();
+  document.querySelectorAll('.aoe-shape-btn').forEach(b => { b.onclick = () => setAoeShape(b.dataset.shape); });
+  document.getElementById('aoe-color').oninput = function() { setAoeColor(this.value); };
+  document.getElementById('btn-draw').onclick = () => toggleDrawMode();
+  document.getElementById('btn-draw-clear').onclick = () => drawClearScribbles();
+  document.querySelectorAll('.draw-tool-btn').forEach(b => { b.onclick = () => setDrawTool(b.dataset.tool); });
+  document.getElementById('btn-legend').onclick = () => toggleLegend();
+  document.getElementById('btn-snap').onclick = function() {
+    snapToGrid = !snapToGrid;
+    this.classList.toggle('active', snapToGrid);
+  };
+
+  const brushSizeInput = document.getElementById('brush-size');
+  const brushSizeLabel = document.getElementById('brush-size-label');
+  brushSizeInput.oninput = e => {
+    brushSize = parseInt(e.target.value);
+    brushSizeLabel.textContent = brushSize;
+  };
+
+  document.getElementById('btn-fill-fog').onclick = () => {
+    if (!fogDataCtx) return;
+    pushUndo();
+    polygons = []; activePolygon = null; selectedPolygonId = null;
+    fogDataCtx.fillStyle = '#1a1a2e';
+    fogDataCtx.fillRect(0, 0, fogDataCanvas.width, fogDataCanvas.height);
+    if (baseFogCtx) {
+      baseFogCtx.fillStyle = '#1a1a2e';
+      baseFogCtx.fillRect(0, 0, baseFogCanvas.width, baseFogCanvas.height);
+    }
+    startFogTransition(true);
+    rebuildFogEffect();
+    fogDirty = true;
+    scheduleRender();
+    scheduleAutoSync();
+  };
+  document.getElementById('btn-clear-fog').onclick = () => {
+    if (!fogDataCtx) return;
+    pushUndo();
+    polygons = []; activePolygon = null; selectedPolygonId = null;
+    fogDataCtx.clearRect(0, 0, fogDataCanvas.width, fogDataCanvas.height);
+    if (baseFogCtx) baseFogCtx.clearRect(0, 0, baseFogCanvas.width, baseFogCanvas.height);
+    startFogTransition(false);
+    rebuildFogEffect();
+    fogDirty = true;
+    scheduleRender();
+    scheduleAutoSync();
+  };
+
+  // Grid
+  const gridBtn       = document.getElementById('btn-grid');
+  const gridSizeInput = document.getElementById('grid-size');
+  gridBtn.onclick = function(e) {
+    e.stopPropagation();
+    gridEnabled = !gridEnabled;
+    this.classList.toggle('active', gridEnabled);
+    scheduleAutoSync();
+    gridDirty = true;
+    scheduleRender();
+  };
+  document.getElementById('section-grid-hdr').addEventListener('click', function(e) {
+    if (e.target.closest('#btn-grid')) return;
+    document.getElementById('section-grid').classList.toggle('open');
+  });
+  gridSizeInput.oninput = e => {
+    gridSize = parseInt(e.target.value);
+    document.getElementById('grid-size-num').value = gridSize;
+    if (gridEnabled) { gridDirty = true; scheduleRender(); }
+    scheduleAutoSync();
+  };
+  document.getElementById('grid-size-num').oninput = e => {
+    const v = Math.max(10, Math.min(400, parseInt(e.target.value) || 10));
+    gridSize = v; gridSizeInput.value = v;
+    if (gridEnabled) { gridDirty = true; scheduleRender(); }
+    scheduleAutoSync();
+  };
+  document.getElementById('grid-offset-x').oninput = e => {
+    gridOffsetX = parseInt(e.target.value);
+    document.getElementById('grid-offset-x-num').value = gridOffsetX;
+    if (gridEnabled) { gridDirty = true; scheduleRender(); }
+    scheduleAutoSync();
+  };
+  document.getElementById('grid-offset-x-num').oninput = e => {
+    const v = Math.max(0, Math.min(400, parseInt(e.target.value) || 0));
+    gridOffsetX = v; document.getElementById('grid-offset-x').value = v;
+    if (gridEnabled) { gridDirty = true; scheduleRender(); }
+    scheduleAutoSync();
+  };
+  document.getElementById('grid-offset-y').oninput = e => {
+    gridOffsetY = parseInt(e.target.value);
+    document.getElementById('grid-offset-y-num').value = gridOffsetY;
+    if (gridEnabled) { gridDirty = true; scheduleRender(); }
+    scheduleAutoSync();
+  };
+  document.getElementById('grid-offset-y-num').oninput = e => {
+    const v = Math.max(0, Math.min(400, parseInt(e.target.value) || 0));
+    gridOffsetY = v; document.getElementById('grid-offset-y').value = v;
+    if (gridEnabled) { gridDirty = true; scheduleRender(); }
+    scheduleAutoSync();
+  };
+  (['sq', 'hflat', 'hptop']).forEach(m => {
+    document.getElementById('btn-grid-' + m).onclick = () => {
+      gridMode = m === 'sq' ? 'square' : m === 'hflat' ? 'hex-flat' : 'hex-pointy';
+      document.querySelectorAll('.grid-mode-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-grid-' + m).classList.add('active');
+      if (gridEnabled) { gridDirty = true; scheduleRender(); }
+      scheduleAutoSync();
+    };
+  });
+  document.getElementById('grid-color').oninput = e => {
+    gridColor = e.target.value;
+    if (gridEnabled) { gridDirty = true; scheduleRender(); }
+    scheduleAutoSync();
+  };
+  document.getElementById('grid-opacity').oninput = e => {
+    gridOpacity = parseInt(e.target.value) / 100;
+    document.getElementById('grid-opacity-num').value = e.target.value;
+    if (gridEnabled) { gridDirty = true; scheduleRender(); }
+    scheduleAutoSync();
+  };
+  document.getElementById('grid-opacity-num').oninput = e => {
+    const v = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+    gridOpacity = v / 100; document.getElementById('grid-opacity').value = v;
+    if (gridEnabled) { gridDirty = true; scheduleRender(); }
+    scheduleAutoSync();
+  };
+  document.getElementById('grid-thickness').oninput = e => {
+    gridLineWidth = parseInt(e.target.value);
+    document.getElementById('grid-thickness-num').value = gridLineWidth;
+    if (gridEnabled) { gridDirty = true; scheduleRender(); }
+    scheduleAutoSync();
+  };
+  document.getElementById('grid-thickness-num').oninput = e => {
+    const v = Math.max(1, Math.min(10, parseInt(e.target.value) || 1));
+    gridLineWidth = v; document.getElementById('grid-thickness').value = v;
+    if (gridEnabled) { gridDirty = true; scheduleRender(); }
+    scheduleAutoSync();
+  };
+  document.getElementById('btn-grid-reset').onclick = () => {
+    gridSize      = 70;
+    gridOffsetX   = 0;
+    gridOffsetY   = 0;
+    gridColor     = '#ffffff';
+    gridOpacity   = 0.25;
+    gridMode      = 'square';
+    gridLineWidth = 1;
+    document.getElementById('grid-size').value          = 70;
+    document.getElementById('grid-size-num').value      = 70;
+    document.getElementById('grid-offset-x').value      = 0;
+    document.getElementById('grid-offset-x-num').value  = 0;
+    document.getElementById('grid-offset-y').value      = 0;
+    document.getElementById('grid-offset-y-num').value  = 0;
+    document.getElementById('grid-color').value         = '#ffffff';
+    document.getElementById('grid-opacity').value       = 25;
+    document.getElementById('grid-opacity-num').value   = 25;
+    document.getElementById('grid-thickness').value     = 1;
+    document.getElementById('grid-thickness-num').value = 1;
+    document.querySelectorAll('.grid-mode-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-grid-sq').classList.add('active');
+    if (gridEnabled) { gridDirty = true; scheduleRender(); }
+  };
+
+  function setAutoSync(enabled) {
+    autoSync = enabled;
+    const btn = document.getElementById('btn-auto-sync');
+    btn.classList.toggle('active', autoSync);
+    btn.textContent = autoSync ? 'Auto' : 'Manual';
+    localStorage.setItem('evermist-auto-sync', autoSync ? '1' : '0');
+  }
+  document.getElementById('btn-auto-sync').onclick = () => setAutoSync(!autoSync);
+  setAutoSync(localStorage.getItem('evermist-auto-sync') !== '0');
+
+  function toggleFogAnim() {
+    fogAnimEnabled = !fogAnimEnabled;
+    document.getElementById('btn-anim').classList.toggle('active', fogAnimEnabled);
+    if (fogAnimEnabled) startFogAnim(); else stopFogAnim();
+    syncAnimToPlayer();
+  }
+  document.getElementById('btn-anim').onclick = function(e) {
+    e.stopPropagation();
+    toggleFogAnim();
+  };
+  fogAnimEnabled = true;
+  document.getElementById('btn-anim').classList.add('active');
+  startFogAnim();
+
+  // ─── Fog animation presets & advanced sliders ────────────────────────────
+  const ANIM_PRESETS = {
+    calm:    { speed: 40,  drift: 0.3,  morph: 0.12, warpStr: 0.08, warpRad: 0.05, pulse: 0.10 },
+    default: { speed: 60,  drift: 0.5,  morph: 0.20, warpStr: 0.10, warpRad: 0.06, pulse: 0.15 },
+    fast:    { speed: 100, drift: 1.0,  morph: 0.35, warpStr: 0.15, warpRad: 0.08, pulse: 0.30 },
+  };
+  let activePreset = 'default';
+
+  function animLogScale(sliderVal, baseVal) {
+    return baseVal * Math.exp((sliderVal - 500) / 500 * Math.log(50));
+  }
+  function animSliderFromVal(currentVal, baseVal) {
+    if (baseVal === 0 || currentVal === 0) return 0;
+    return 500 + 500 * Math.log(currentVal / baseVal) / Math.log(50);
+  }
+
+  const ANIM_DEFAULTS = {
+    drift: 0.5, morphSpeed: 0.20, warpStr: 0.10, warpRad: 0.06, pulse: 0.15
+  };
+
+  function syncAnimToPlayer(includeWarp) {
+    if (!playerWindow || playerWindow.closed) return;
+    const msg = { type: 'anim-params', fogAnimEnabled, fogAnimSpeed, driftScale, cloudFrameSpeed, alphaPulseAmp };
+    if (includeWarp) { msg.cloudWarpStrength = cloudWarpStrength; msg.cloudWarpRadius = cloudWarpRadius; }
+    playerWindow.postMessage(msg, '*');
+  }
+
+  function regenCloudFrames() {
+    generateCloudFrames(512, CLOUD_FRAME_COUNT);
+    cloudFramePos = 0;
+    if (fogEffectCanvas) { recompositeCloudEffect(fogAnimEnabled ? fogAnimOffsets : null); fogDirty = true; scheduleRender(); }
+    syncAnimToPlayer(true);
+  }
+
+  function applyAnimPreset(name) {
+    const p = ANIM_PRESETS[name];
+    if (!p) return;
+    activePreset = name;
+    document.querySelectorAll('.anim-preset-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('anim-preset-' + name);
+    if (btn) btn.classList.add('active');
+
+    const warpChanged = cloudWarpStrength !== p.warpStr || cloudWarpRadius !== p.warpRad;
+
+    fogAnimSpeed = p.speed / 100;
+    driftScale = p.drift;
+    cloudFrameSpeed = p.morph;
+    cloudWarpStrength = p.warpStr;
+    cloudWarpRadius = p.warpRad;
+    alphaPulseAmp = p.pulse;
+
+    updateAnimSliders();
+    if (warpChanged) {
+      regenCloudFrames();
+    } else {
+      syncAnimToPlayer();
+    }
+
+    if (!fogAnimEnabled) {
+      fogAnimEnabled = true;
+      document.getElementById('btn-anim').classList.add('active');
+      startFogAnim();
+    }
+  }
+
+  function updateAnimSliders() {
+    document.getElementById('anim-speed').value = Math.round(fogAnimSpeed * 100);
+    document.getElementById('anim-speed-num').value = Math.round(fogAnimSpeed * 100);
+
+    const logSliders = [
+      ['anim-drift', 'anim-drift-num', driftScale, ANIM_DEFAULTS.drift],
+      ['anim-morph-speed', 'anim-morph-num', cloudFrameSpeed, ANIM_DEFAULTS.morphSpeed],
+      ['anim-warp-str', 'anim-warp-num', cloudWarpStrength, ANIM_DEFAULTS.warpStr],
+      ['anim-warp-rad', 'anim-warp-rad-num', cloudWarpRadius, ANIM_DEFAULTS.warpRad],
+      ['anim-alpha-amp', 'anim-alpha-amp-num', alphaPulseAmp, ANIM_DEFAULTS.pulse],
+    ];
+    for (const [sliderId, numId, val, base] of logSliders) {
+      document.getElementById(sliderId).value = Math.round(animSliderFromVal(val, base));
+      document.getElementById(numId).value = val.toFixed(2);
+    }
+  }
+
+  function clearPresetHighlight() {
+    activePreset = null;
+    document.querySelectorAll('.anim-preset-btn').forEach(b => b.classList.remove('active'));
+  }
+
+  // Wire preset buttons
+  Object.keys(ANIM_PRESETS).forEach(name => {
+    document.getElementById('anim-preset-' + name).onclick = () => applyAnimPreset(name);
+  });
+
+  // Advanced toggle
+  document.getElementById('btn-anim-advanced').onclick = function() {
+    const panel = document.getElementById('anim-advanced-panel');
+    const showing = panel.style.display !== 'none';
+    panel.style.display = showing ? 'none' : 'block';
+    this.classList.toggle('active', !showing);
+  };
+
+  // Wire speed slider (linear, not log)
+  function wireSpeedSlider() {
+    const slider = document.getElementById('anim-speed');
+    const num = document.getElementById('anim-speed-num');
+    slider.oninput = function() {
+      fogAnimSpeed = +this.value / 100;
+      num.value = this.value;
+      clearPresetHighlight();
+      syncAnimToPlayer();
+    };
+    num.onchange = function() {
+      const v = Math.max(0, Math.min(300, Math.round(+this.value)));
+      this.value = v;
+      slider.value = v;
+      fogAnimSpeed = v / 100;
+      clearPresetHighlight();
+      syncAnimToPlayer();
+    };
+  }
+  wireSpeedSlider();
+
+  // Wire log-scale sliders with bidirectional numeric input
+  function wireAnimSlider(sliderId, numId, baseVal, apply, isWarp) {
+    const slider = document.getElementById(sliderId);
+    const num = document.getElementById(numId);
+    slider.oninput = function() {
+      const v = animLogScale(+this.value, baseVal);
+      num.value = v.toFixed(2);
+      apply(v);
+      clearPresetHighlight();
+      if (!isWarp) syncAnimToPlayer();
+    };
+    num.onchange = function() {
+      const v = Math.max(0, +this.value);
+      this.value = v.toFixed(2);
+      slider.value = Math.round(animSliderFromVal(v, baseVal));
+      apply(v);
+      clearPresetHighlight();
+      if (isWarp) regenCloudFrames();
+      else syncAnimToPlayer();
+    };
+    if (isWarp) slider.addEventListener('mouseup', regenCloudFrames);
+  }
+
+  wireAnimSlider('anim-drift', 'anim-drift-num', ANIM_DEFAULTS.drift, v => { driftScale = v; });
+  wireAnimSlider('anim-morph-speed', 'anim-morph-num', ANIM_DEFAULTS.morphSpeed, v => { cloudFrameSpeed = v; });
+  wireAnimSlider('anim-alpha-amp', 'anim-alpha-amp-num', ANIM_DEFAULTS.pulse, v => { alphaPulseAmp = v; });
+  wireAnimSlider('anim-warp-str', 'anim-warp-num', ANIM_DEFAULTS.warpStr, v => { cloudWarpStrength = v; }, true);
+  wireAnimSlider('anim-warp-rad', 'anim-warp-rad-num', ANIM_DEFAULTS.warpRad, v => { cloudWarpRadius = v; }, true);
+
+  initFogControls();
+
+  // Reset button — resets to current preset (or Default if none)
+  document.getElementById('btn-anim-reset').onclick = function() {
+    applyAnimPreset(activePreset || 'default');
+  };
+
+  document.getElementById('btn-fullscreen-player').onclick = () => {
+    if (!playerWindow || playerWindow.closed) return;
+    playerWindow.postMessage({ type: 'fullscreen' }, '*');
+  };
+
+  document.getElementById('btn-sync-view').onclick = () => {
+    if (!playerWindow || playerWindow.closed) return;
+    const { w: vpW, h: vpH } = getViewportSize();
+    playerWindow.postMessage({
+      type: 'view-snap',
+      mapCX: (vpW / 2 - panX) / zoom,
+      mapCY: (vpH / 2 - panY) / zoom,
+      zoom,
+    }, '*');
+  };
+
+  window.addEventListener('message', e => {
+    if (!playerWindow || e.source !== playerWindow) return;
+    const msg = e.data;
+    if (!msg) return;
+    if (msg.type === 'PLAYER_READY' || msg.type === 'need-map') {
+      onPlayerResyncRequest();
+      blackoutResyncToPlayer(); // a (re)opened projection inherits the current blackout state
+      rulerResyncToPlayer();    // …and the currently-shared rulers
+      tokensResyncToPlayer();   // …and the tokens
+      aoesResyncToPlayer();     // …and the areas
+      if (typeof drawResyncToPlayer === 'function') drawResyncToPlayer(); // …and the persistent riscos
+      return;
+    }
+    if (msg.type === 'PLAYER_MODE') {
+      playerFollowMode = msg.mode === 'follow';
+      updatePlayerModeIndicator();
+    }
+  });
+
+  document.getElementById('btn-player').onclick = () => {
+    const url = window.location.href.split('?')[0] + '?mode=player';
+    playerWindow = window.open(url, 'evermist-player', 'toolbar=no,menubar=no,scrollbars=no');
+  };
+
+  document.getElementById('btn-send').onclick = sendToPlayer;
+  document.getElementById('btn-blackout').onclick = () => blackoutToggle();
+
+  // Section expand/collapse
+  document.getElementById('fog-section-hdr').addEventListener('click', function(e) {
+    if (e.target.closest('#btn-anim')) return;
+    document.getElementById('section-fog').classList.toggle('open');
+  });
+  document.getElementById('player-section-hdr').onclick = () =>
+    document.getElementById('section-player').classList.toggle('open');
+
+  // Polygon context panel
+  document.getElementById('poly-ctx-reveal').onclick = () => {
+    const poly = polygons.find(p => p.id === selectedPolygonId);
+    if (poly && poly.mode !== 'reveal') toggleSelectedPolygon();
+  };
+  document.getElementById('poly-ctx-shroud').onclick = () => {
+    const poly = polygons.find(p => p.id === selectedPolygonId);
+    if (poly && poly.mode !== 'shroud') toggleSelectedPolygon();
+  };
+  document.getElementById('poly-ctx-delete').onclick = () => {
+    if (selectedPolygonId != null) deleteSelectedPolygon();
+  };
+  document.getElementById('poly-ctx-rmode').onclick = () => {
+    const poly = polygons.find(p => p.id === selectedPolygonId);
+    if (!poly) return;
+    if (polyCtxRadiusMode === 'all') {
+      polyCtxRadiusMode = 'vertex';
+      if (!poly.cornerRadii) poly.cornerRadii = new Array(poly.vertices.length).fill(null);
+    } else {
+      polyCtxRadiusMode = 'all';
+    }
+    drawCursor(lastScreenX, lastScreenY);
+  };
+  document.getElementById('poly-ctx-del-vertex').onclick = () => {
+    const poly = polygons.find(p => p.id === selectedPolygonId);
+    if (!poly || selectedVertexIndex < 0 || poly.vertices.length <= 3) return;
+    pushUndo();
+    poly.vertices.splice(selectedVertexIndex, 1);
+    if (poly.cornerRadii) poly.cornerRadii.splice(selectedVertexIndex, 1);
+    selectedVertexIndex = -1;
+    rebuildFogFromPolygons();
+    startFogTransition();
+    rebuildFogEffect();
+    fogDirty = true;
+    scheduleRender();
+    scheduleAutoSync();
+    drawCursor(lastScreenX, lastScreenY);
+  };
+  (() => {
+    let radiusUndoPushed = false;
+    const radiusInput = document.getElementById('poly-ctx-radius');
+    const radiusVal   = document.getElementById('poly-ctx-radius-val');
+    radiusInput.addEventListener('mousedown', () => { radiusUndoPushed = false; });
+    radiusInput.oninput = function() {
+      const poly = polygons.find(p => p.id === selectedPolygonId);
+      if (!poly) return;
+      if (!radiusUndoPushed) { pushUndo(); radiusUndoPushed = true; }
+      const val = parseInt(this.value);
+      radiusVal.textContent = val;
+      if (polyCtxRadiusMode === 'vertex' && selectedVertexIndex >= 0 && poly.cornerRadii) {
+        poly.cornerRadii[selectedVertexIndex] = val;
+      } else {
+        poly.cornerRadius = val;
+      }
+      rebuildFogFromPolygons();
+      rebuildFogEffect();
+      fogDirty = true;
+      scheduleRender();
+      drawCursor(lastScreenX, lastScreenY);
+    };
+    radiusInput.addEventListener('change', () => { radiusUndoPushed = false; scheduleAutoSync(); });
+  })();
+
+  updateContextPanels(); // init: brush is default tool, show panel immediately
+
+  // UI scale slider — persists to localStorage
+  (function() {
+    const slider = document.getElementById('ui-scale');
+    const apply  = v => document.documentElement.style.setProperty('--ui-zoom', v / 100);
+    const saved  = localStorage.getItem('evermist-ui-zoom');
+    if (saved) { slider.value = saved; apply(saved); }
+    slider.oninput  = () => apply(slider.value);
+    slider.onchange = () => localStorage.setItem('evermist-ui-zoom', slider.value);
+  })();
+}
+
+// Player: receive messages from DM
+if (isPlayer) {
+  fogAnimEnabled = true; // player view always animates
+
+  // Pre-generate the cloud texture now, while the player sits on the idle "waiting
+  // for DM" screen. The first generateCloudFrames() call blocks for ~1–2s; doing it
+  // lazily inside loadFog (on the first fog-update) meant the map had already been
+  // shown by PixiJS, so players briefly saw a fully-revealed, fog-less map until the
+  // texture finished. Paying the cost up-front closes that gap.
+  generateCloudFrames(512, CLOUD_FRAME_COUNT);
+
+  if (window.opener) window.opener.postMessage({ type: 'PLAYER_READY' }, '*');
+
+  initPlayerMapRetry(); // viewport.js: send need-map to DM, retry until map received
+
+  window.addEventListener('resize', () => {
+    syncSize();
+    if (mapBitmap || mapOffscreen) {
+      if (playerFollowDM && lastDMView) applyView(lastDMView);
+      else fitToScreen();
+      viewportDirty = true;
+      scheduleRender();
+    }
+  });
+
+  window.addEventListener('message', e => {
+    const msg = e.data;
+    if (!msg) return;
+
+    if (msg.type === 'anim-params') {
+      fogAnimSpeed      = msg.fogAnimSpeed      ?? fogAnimSpeed;
+      driftScale        = msg.driftScale        ?? driftScale;
+      cloudFrameSpeed   = msg.cloudFrameSpeed   ?? cloudFrameSpeed;
+      alphaPulseAmp     = msg.alphaPulseAmp     ?? alphaPulseAmp;
+      if (msg.cloudWarpStrength != null || msg.cloudWarpRadius != null) {
+        cloudWarpStrength = msg.cloudWarpStrength ?? cloudWarpStrength;
+        cloudWarpRadius   = msg.cloudWarpRadius  ?? cloudWarpRadius;
+        generateCloudFrames(512, CLOUD_FRAME_COUNT);
+        cloudFramePos = 0;
+        rebuildFogEffect();
+      }
+      fogAnimEnabled = msg.fogAnimEnabled ?? fogAnimEnabled;
+      fogDirty = true;
+      scheduleRender();
+      if (fogAnimEnabled) startFogAnim(); else stopFogAnim();
+      return;
+    }
+
+    if (msg.type === 'scene-transition') {
+      if (msg.phase === 'out') {
+        document.getElementById('scene-fade').classList.add('dark');
+        _sceneFadeStart = Date.now();
+        if (msg.sceneName) {
+          const nameEl = document.getElementById('scene-fade-name');
+          if (nameEl) nameEl.textContent = msg.sceneName;
+        }
+      }
+      return;
+    }
+
+    if (msg.type === 'view-snap') {
+      playerFollowDM = true;
+      notifyDMOfMode();
+      if (mapOffscreen) startViewLerp(resolveView(msg));
+      return;
+    }
+
+    if (msg.type === 'fullscreen') {
+      if (window.electronAPI) window.electronAPI.toggleFullscreen();
+      else if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      else document.documentElement.requestFullscreen().catch(() => {});
+      return;
+    }
+
+    if (msg.type === 'blackout') { setPlayerBlackout(!!msg.on); return; }
+
+    if (msg.type === 'ruler-set') { rulerApplyPlayerSet(msg); return; }
+
+    if (msg.type === 'tokens-update') { tokensApplyFromPlayer(msg); return; }
+
+    if (msg.type === 'aoe-update') { aoesApplyFromPlayer(msg); return; }
+
+    if (msg.type === 'draw-scribbles')   { drawApplyScribbles(msg); return; }
+    if (msg.type === 'draw-ping')        { drawApplyPing(msg); return; }
+    if (msg.type === 'draw-trace-live')  { drawApplyTraceLive(msg); return; }
+    if (msg.type === 'draw-trace')       { drawApplyTrace(msg); return; }
+    if (msg.type === 'draw-trace-clear') { drawApplyTraceClear(); return; }
+    if (msg.type === 'draw-clear')       { drawApplyClear(); return; }
+
+    if (msg.type !== 'fog-update') return;
+    // (retry loop in initPlayerMapRetry stops itself when mapOffscreen is set — no timer to clear)
+
+    // Don't reveal yet — keep scene-fade dark until map + fog are fully decoded and render is queued.
+    // This prevents players from seeing the old scene or a partially-applied fog during the transition.
+    // First open has no scene-transition 'out' phase to black out the screen, so the map (painted
+    // immediately by PixiJS) would flash fog-less before the Canvas-2D fog is ready. Cover it the same
+    // way a scene switch does — instantly (transition disabled) so the map can't peek during a fade-in.
+    // revealPlayer() removes .dark with the normal 0.5s ease once map+fog have rendered.
+    if (msg.mapUrl) {
+      const fade = document.getElementById('scene-fade');
+      fade.style.transition = 'none';
+      fade.classList.add('dark');
+      _sceneFadeStart = Date.now();
+      void fade.offsetWidth;        // force reflow so the instant black "sticks"
+      fade.style.transition = '';   // restore so revealPlayer's removal animates
+    }
+    landing.style.display = 'none';
+
+    if (msg.view) lastDMView = msg.view;
+
+    mapWidth  = msg.mapWidth;
+    mapHeight = msg.mapHeight;
+    if (msg.gridEnabled !== undefined) {
+      gridEnabled   = msg.gridEnabled;
+      gridSize      = msg.gridSize      || gridSize;
+      gridOffsetX   = msg.gridOffsetX   ?? gridOffsetX;
+      gridOffsetY   = msg.gridOffsetY   ?? gridOffsetY;
+      gridColor     = msg.gridColor     || gridColor;
+      gridOpacity   = msg.gridOpacity   ?? gridOpacity;
+      gridMode      = msg.gridMode      || gridMode;
+      gridLineWidth = msg.gridLineWidth ?? gridLineWidth;
+      gridDirty   = true;
+    }
+
+    if (msg.sceneName) {
+      const nameEl = document.getElementById('scene-fade-name');
+      if (nameEl) nameEl.textContent = msg.sceneName;
+    }
+
+    // revealPlayer() is defined in scenes.js — enforces SCENE_FADE_MIN_MS floor then lifts the cover.
+
+    // skipTransition: scene switches must not blend old fog into new — show new state directly.
+    const loadFog = (src, skipTransition) => new Promise(resolve => {
+      const img = new Image();
+      img.onerror = () => resolve();
+      img.onload = () => {
+        if (!fogDataCanvas || fogDataCanvas.width !== Math.ceil(mapWidth / FOG_SCALE)) {
+          fogDataCanvas = document.createElement('canvas');
+          fogDataCanvas.width  = Math.ceil(mapWidth  / FOG_SCALE);
+          fogDataCanvas.height = Math.ceil(mapHeight / FOG_SCALE);
+          fogDataCtx = fogDataCanvas.getContext('2d');
+        }
+        fogDataCtx.clearRect(0, 0, fogDataCanvas.width, fogDataCanvas.height);
+        fogDataCtx.drawImage(img, 0, 0, fogDataCanvas.width, fogDataCanvas.height);
+        if (!cloudPattern) generateCloudFrames(512, CLOUD_FRAME_COUNT);
+        if (!skipTransition && msg.fogChanged) startFogTransition(!!msg.isShroud);
+        rebuildFogEffect();
+        startFogAnim();
+        resolve();
+      };
+      img.src = src;
+    });
+
+    if (msg.mapUrl && msg.mapType === 'video') {
+      // Video scene — create a <video> element on Player side
+      cleanupVideo();
+      mapVideoUrl = msg.mapUrl;
+      const video = document.createElement('video');
+      video.muted = true; video.loop = true; video.playsInline = true; video.preload = 'auto';
+      video.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;pointer-events:none;opacity:0';
+      document.body.appendChild(video);
+      let settled = false;
+      video.onerror = () => {
+        if (settled) return;
+        settled = true;
+        video.onerror = null; video.oncanplay = null;
+        video.pause(); video.src = '';
+        if (video.parentNode) video.parentNode.removeChild(video);
+        cleanupVideo(); revealPlayer();
+      };
+      video.oncanplay = function() {
+        if (settled) return;
+        settled = true;
+        video.onerror = null; video.oncanplay = null;
+
+        function finishPlayerVideo() {
+          const extractCanvas = document.createElement('canvas');
+          extractCanvas.width = mapWidth; extractCanvas.height = mapHeight;
+          extractCanvas.getContext('2d').drawImage(video, 0, 0, mapWidth, mapHeight);
+          if (mapBitmap) { mapBitmap.close(); mapBitmap = null; }
+          mapOffscreen = extractCanvas;
+          if (usePixi) {
+            // Scale the texture down for Player: a full-res canvas (e.g. 9746×5850 = 228 MB raw)
+            // uploaded to GPU on first render triggers Windows TDR (GPU timeout, exit_code=34).
+            // 2× viewport gives 4K-ish quality — sufficient since Player follows DM view.
+            var _maxSide = Math.max(window.innerWidth || 1920, window.innerHeight || 1080) * 2;
+            if (mapWidth > _maxSide || mapHeight > _maxSide) {
+              var _ts = Math.min(_maxSide / mapWidth, _maxSide / mapHeight);
+              playerMapTexCanvas = document.createElement('canvas');
+              playerMapTexCanvas.width  = Math.round(mapWidth  * _ts);
+              playerMapTexCanvas.height = Math.round(mapHeight * _ts);
+              playerMapTexCtx = playerMapTexCanvas.getContext('2d');
+              playerMapTexCtx.drawImage(extractCanvas, 0, 0, playerMapTexCanvas.width, playerMapTexCanvas.height);
+            } else {
+              playerMapTexCanvas = extractCanvas;
+              playerMapTexCtx = extractCanvas.getContext('2d');
+            }
+            pixiSetMap(playerMapTexCanvas, mapWidth, mapHeight);
+            // Refresh the map texture from the video every rendered frame, driven by
+            // the PixiJS render ticker so it never freezes between viewport changes.
+            pixiStartVideoTextureSync(function() {
+              if (mapVideo && playerMapTexCtx && mapVideo.readyState >= 2) {
+                playerMapTexCtx.drawImage(mapVideo, 0, 0, playerMapTexCanvas.width, playerMapTexCanvas.height);
+                pixiUpdateMapTexture();
+              }
+            });
+          }
+          mapVideo = video;
+          attachVideoListeners(video);
+          fitToScreen();
+          if (playerFollowDM && msg.view) applyView(msg.view);
+          loadFog(msg.fogDataUrl, !!msg.sceneChange).then(() => {
+            // Hybrid: Player fog is Canvas-2D (renderFog) on top of the PixiJS map — no
+            // PixiJS fog init. loadFog already ran rebuildFogEffect()+startFogAnim().
+            viewportDirty = true;
+            scheduleRender();
+            video.play().then(() => startVideoLoop()).catch(() => {});
+            revealPlayer();
+          });
+        }
+
+        video.onseeked = function() { video.onseeked = null; finishPlayerVideo(); };
+        video.currentTime = 0.001;
+        setTimeout(() => { if (video.onseeked) { video.onseeked = null; finishPlayerVideo(); } }, 2000);
+      };
+      video.src = msg.mapUrl;
+    } else if (msg.mapUrl) {
+      // Image scene
+      cleanupVideo();
+      const img = new Image();
+      img.onerror = () => { URL.revokeObjectURL(msg.mapUrl); revealPlayer(); };
+      img.onload = () => {
+        mapOffscreen = document.createElement('canvas');
+        mapOffscreen.width  = mapWidth;
+        mapOffscreen.height = mapHeight;
+        mapOffscreen.getContext('2d').drawImage(img, 0, 0);
+        URL.revokeObjectURL(msg.mapUrl);
+        if (mapBitmap) { mapBitmap.close(); mapBitmap = null; }
+        if (usePixi) {
+          pixiSetMap(mapOffscreen, mapWidth, mapHeight);
+        } else {
+          createImageBitmap(img).then(bmp => { mapBitmap = bmp; });
+        }
+        fitToScreen();
+        if (playerFollowDM && msg.view) applyView(msg.view);
+        loadFog(msg.fogDataUrl, !!msg.sceneChange).then(() => {
+          // Hybrid: Player fog is Canvas-2D (renderFog) on top of the PixiJS map — no
+          // PixiJS fog init. loadFog already ran rebuildFogEffect()+startFogAnim().
+          viewportDirty = true;
+          scheduleRender();
+          revealPlayer();
+        });
+      };
+      img.src = msg.mapUrl;
+    } else {
+      if (playerFollowDM && msg.view) applyView(msg.view);
+      loadFog(msg.fogDataUrl, !!msg.sceneChange).then(() => {
+        viewportDirty = true;
+        scheduleRender();
+        revealPlayer();
+      });
+    }
+  });
+
+  // Player pan/zoom (free-look)
+  let playerIsPanning = false;
+  let playerPanStartX, playerPanStartY, playerPanStartPanX, playerPanStartPanY;
+
+  container.addEventListener('mousedown', e => {
+    if (!mapOffscreen) return;
+    playerIsPanning = true;
+    playerPanStartX = e.clientX; playerPanStartY = e.clientY;
+    playerPanStartPanX = panX;   playerPanStartPanY = panY;
+    e.preventDefault();
+  });
+
+  container.addEventListener('mousemove', e => {
+    if (!playerIsPanning || !mapOffscreen) return;
+    const dx = e.clientX - playerPanStartX;
+    const dy = e.clientY - playerPanStartY;
+    if (playerFollowDM && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+      playerFollowDM = false;
+      notifyDMOfMode();
+    }
+    panX = playerPanStartPanX + dx;
+    panY = playerPanStartPanY + dy;
+    viewportDirty = true;
+    scheduleRender();
+  });
+
+  window.addEventListener('mouseup', () => { playerIsPanning = false; });
+
+  container.addEventListener('wheel', e => {
+    e.preventDefault();
+    if (!mapOffscreen) return;
+    const factor  = e.deltaY < 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
+    const newZoom = Math.max(0.02, Math.min(20, zoom * factor));
+    const rect    = container.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    panX = mx - (mx - panX) * (newZoom / zoom);
+    panY = my - (my - panY) * (newZoom / zoom);
+    zoom = newZoom;
+    if (playerFollowDM) {
+      playerFollowDM = false;
+      notifyDMOfMode();
+    }
+    viewportDirty = true;
+    scheduleRender();
+  }, { passive: false });
+
+}
+
+// ─── Shortcut legend ──────────────────────────────────────────────────────────
+let legendVisible = false;
+
+function toggleLegend() {
+  legendVisible = !legendVisible;
+  document.getElementById('shortcut-legend').style.display = legendVisible ? '' : 'none';
+  document.getElementById('legend-backdrop').style.display = legendVisible ? '' : 'none';
+}
+
+if (!isPlayer) {
+  document.getElementById('legend-backdrop').addEventListener('click', () => {
+    if (legendVisible) toggleLegend();
+  });
+}
+
+// ─── Keyboard shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (isPlayer) {
+    if (e.key === 'f') {
+      if (window.electronAPI) window.electronAPI.toggleFullscreen();
+      else document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    }
+    return;
+  }
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+    if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return; }
+  }
+  switch (e.key) {
+    case 'r': toggleRulerMode(); break;                  // Régua (era Revelar — agora só no botão)
+    case 's': document.getElementById('btn-shroud').click(); break;
+    case 'b': e.preventDefault(); blackoutToggle(); break; // Blackout (era Pincel — agora só no botão)
+    case 'e': setShape('rect');   break;
+    case 'p': setShape('poly');   break;
+    case 'c': setShape('circle'); break;
+    case 'v': setShape('select'); break;
+    case 'n': document.getElementById('btn-snap').click();   break;
+    case 'g': document.getElementById('btn-grid').click();   break;
+    case 'a': toggleAoeMode(); break; // modo Área (a animação do fog está no botão Animate do painel)
+    case 'd': toggleDrawMode(); break; // modo Marcações (ping / traçado / risco)
+    case 'f': if (mapOffscreen) { fitToScreen(); viewportDirty = true; scheduleRender(); } break;
+    case 'Delete':
+      if (typeof tokenIsOn === 'function' && tokenIsOn() && selectedTokenId != null) { deleteSelectedToken(); break; }
+      if (typeof aoeIsOn === 'function' && aoeIsOn() && aoeSelectedId != null) { aoeDeleteSelected(); break; }
+      if (shape === 'select' && selectedPolygonId != null && selectedVertexIndex >= 0) {
+        const poly = polygons.find(p => p.id === selectedPolygonId);
+        if (poly && poly.vertices.length > 3) {
+          pushUndo();
+          poly.vertices.splice(selectedVertexIndex, 1);
+          if (poly.cornerRadii) poly.cornerRadii.splice(selectedVertexIndex, 1);
+          selectedVertexIndex = -1;
+          rebuildFogFromPolygons();
+          startFogTransition();
+          rebuildFogEffect();
+          fogDirty = true;
+          scheduleRender();
+          scheduleAutoSync();
+          drawCursor(lastScreenX, lastScreenY);
+        }
+      } else if (selectedPolygonId != null) {
+        deleteSelectedPolygon();
+      }
+      break;
+    case 'Escape':
+      if (legendVisible) { toggleLegend(); break; }
+      if (activePolygon) {
+        activePolygon = null;
+        drawCursor(null, null);
+      } else if (selectedVertexIndex >= 0) {
+        selectedVertexIndex = -1;
+        drawCursor(lastScreenX, lastScreenY);
+      } else if (selectedPolygonId != null) {
+        selectedPolygonId = null;
+        drawCursor(null, null);
+      }
+      break;
+    case 't': toggleTokenMode(); break; // modo Token (o reveal/shroud do polígono está nos botões ◯/◉ do painel)
+    case '[': brushSize = Math.max(5, brushSize - 10);
+              document.getElementById('brush-size').value = brushSize;
+              document.getElementById('brush-size-label').textContent = brushSize; break;
+    case ']': brushSize = Math.min(300, brushSize + 10);
+              document.getElementById('brush-size').value = brushSize;
+              document.getElementById('brush-size-label').textContent = brushSize; break;
+    case 'S': if (!autoSync) { e.preventDefault(); sendToPlayer(); } break;
+    case 'R': toggleRulerShareToPlayers(); break;        // Shift+R: mostrar/ocultar régua aos jogadores
+    case ' ': e.preventDefault(); sendToPlayer(); break;
+    case '?': if (!isPlayer) toggleLegend(); break;
+  }
+});
+
+window.addEventListener('resize', () => {
+  syncSize();
+  if (mapBitmap || mapOffscreen) {
+    viewportDirty = true;
+    scheduleRender();
+  }
+});
+
+syncSize();
+
+window.addEventListener('beforeunload', () => {
+  if (!isPlayer) doAutoSave();
+  stopFogAnim();
+  stopFogTransition();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (!isPlayer) doAutoSave();
+    if (pixiApp) pixiApp.ticker.stop();
+  } else {
+    if (pixiApp) pixiApp.ticker.start();
+  }
+});
+
+if (!isPlayer) initScenes().catch(console.error);
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<style>
+  /* Bundled offline — no network at runtime. */
+  @font-face {
+    font-family: 'Cinzel';
+    src: url('fonts/cinzel-600.woff2') format('woff2');
+    font-weight: 600; font-style: normal; font-display: swap;
+  }
+  :root {
+    --bg: #14161b; --surface: #1c1f27; --border: #2f3540;
+    --text: #e7e9ee; --muted: #9aa3b2; --accent: #c8a24a;
+  }
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; height: 100%; -webkit-user-select: none; user-select: none; cursor: default; }
+  #card {
+    position: absolute; inset: 0;
+    border-radius: 18px;
+    background: radial-gradient(120% 90% at 50% 30%, #1c1f27 0%, #14161b 60%, #0f1115 100%);
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px;
+    font-family: system-ui, "Segoe UI", -apple-system, sans-serif;
+    opacity: 0; animation: fadeIn 0.45s ease forwards;
+  }
+  @keyframes fadeIn { to { opacity: 1; } }
+  #mark { width: 88px; height: 88px; color: var(--accent); filter: drop-shadow(0 0 18px rgba(200, 162, 74, 0.28)); }
+  #mark .ring-outer { opacity: 0.35; }
+  #wordmark {
+    font-family: 'Cinzel', Georgia, serif;
+    font-weight: 600; font-size: 30px; letter-spacing: 0.06em; color: var(--text);
+  }
+  #wordmark .vtt { color: var(--accent); }
+  #tagline { color: var(--muted); font-size: 12px; letter-spacing: 0.12em; margin-top: -6px; text-transform: uppercase; }
+  #loader { width: 168px; height: 3px; border-radius: 3px; background: rgba(200, 162, 74, 0.12); overflow: hidden; margin-top: 8px; }
+  #loader::after {
+    content: ""; display: block; height: 100%; width: 40%; border-radius: 3px;
+    background: linear-gradient(90deg, rgba(200,162,74,0) 0%, var(--accent) 50%, rgba(200,162,74,0) 100%);
+    animation: sweep 1.25s ease-in-out infinite;
+  }
+  @keyframes sweep { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+</style>
+</head>
+<body>
+<div id="card">
+  <svg id="mark" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <circle class="ring-outer" cx="50" cy="50" r="40" stroke="currentColor" stroke-width="2.2"/>
+    <circle cx="50" cy="50" r="24" stroke="currentColor" stroke-width="3"/>
+    <circle cx="50" cy="50" r="8" fill="currentColor"/>
+  </svg>
+  <div id="wordmark">presence<span class="vtt">VTT</span></div>
+  <div id="tagline">Mapas para a mesa</div>
+  <div id="loader"></div>
+</div>
+</body>
+</html>
