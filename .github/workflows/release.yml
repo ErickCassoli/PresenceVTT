@@ -1,7 +1,7 @@
 name: Build & Release
 
 # Runs when you push a version tag like v1.0.0.
-# Builds Evermist on Windows, macOS, and Linux in parallel,
+# Builds PresenceVTT on Windows, macOS, and Linux in parallel,
 # then attaches each installer to the GitHub Release for that tag.
 on:
   push:
