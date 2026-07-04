@@ -1,6 +1,6 @@
 {
   "name": "presencevtt",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "presenceVTT — apresentador de mapas com fog of war para RPG de mesa presencial",
   "main": "main.js",
   "author": "Erick Cassoli",
