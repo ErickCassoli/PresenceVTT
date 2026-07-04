@@ -40,6 +40,7 @@
     "files": [
       "index.html",
       "splash.html",
+      "i18n.js",
       "lib/pixi.min.js",
       "lib/howler.min.js",
       "renderer.js",
