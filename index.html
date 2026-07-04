@@ -1374,10 +1374,10 @@
 
     <!-- Reveal / Shroud toggle -->
     <div class="tool-reveal-shroud">
-      <button id="btn-reveal" class="tool-btn reveal-btn active" title="Revelar">
+      <button id="btn-reveal" class="tool-btn reveal-btn active" title="Revelar (S alterna)">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
       </button>
-      <button id="btn-shroud" class="tool-btn shroud-btn" title="Ocultar (S)">
+      <button id="btn-shroud" class="tool-btn shroud-btn" title="Ocultar (S alterna)">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"/></svg>
       </button>
     </div>
@@ -1385,19 +1385,19 @@
     <div class="toolbar-divider"></div>
 
     <!-- Tools: Select, Polygon, Rectangle, Circle, Brush -->
-    <button id="btn-select" class="tool-btn" title="Selecionar / Mover (V)">
+    <button id="btn-select" class="tool-btn" title="Selecionar / Mover (1 · V)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 4 7.07 17 2.51-7.39L21 11.07 4 4z"/></svg>
     </button>
-    <button id="btn-poly" class="tool-btn" title="Polígono (P)">
+    <button id="btn-poly" class="tool-btn" title="Polígono (5 · P)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,3.5 20,9.5 17,19 7,19 4,9.5"/></svg>
     </button>
-    <button id="btn-rect" class="tool-btn" title="Retângulo (E)">
+    <button id="btn-rect" class="tool-btn" title="Retângulo (3 · E)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/></svg>
     </button>
-    <button id="btn-circle" class="tool-btn" title="Círculo (C)">
+    <button id="btn-circle" class="tool-btn" title="Círculo (4 · C)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>
     </button>
-    <button id="btn-brush" class="tool-btn active" title="Pincel">
+    <button id="btn-brush" class="tool-btn active" title="Pincel (2)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 4.5a2.12 2.12 0 013 3L7 20l-4 1 1-4L16.5 4.5z"/><path d="M15 6l3 3"/></svg>
     </button>
 
@@ -1626,16 +1626,15 @@
   <div class="legend-cols">
     <div>
       <div class="legend-cat">Ferramentas</div>
-      <div class="legend-row"><kbd>R</kbd> Régua</div>
-      <div class="legend-row"><kbd>T</kbd> Token (âncora de mini)</div>
-      <div class="legend-row"><kbd>E</kbd> Retângulo</div>
-      <div class="legend-row"><kbd>P</kbd> Polígono</div>
-      <div class="legend-row"><kbd>C</kbd> Círculo</div>
-      <div class="legend-row"><kbd>V</kbd> Selecionar / Mover</div>
-      <div class="legend-row"><kbd>S</kbd> Ocultar</div>
+      <div class="legend-row"><kbd>1</kbd> Selecionar / Mover <span style="opacity:.6">(ou V)</span></div>
+      <div class="legend-row"><kbd>2</kbd> Pincel</div>
+      <div class="legend-row"><kbd>3</kbd> Retângulo <span style="opacity:.6">(ou E)</span></div>
+      <div class="legend-row"><kbd>4</kbd> Círculo <span style="opacity:.6">(ou C)</span></div>
+      <div class="legend-row"><kbd>5</kbd> Polígono <span style="opacity:.6">(ou P)</span></div>
+      <div class="legend-row"><kbd>S</kbd> Alterna Revelar / Ocultar</div>
+      <div class="legend-row"><kbd>R</kbd> Régua · <kbd>T</kbd> Token</div>
       <div class="legend-row"><kbd>N</kbd> Grudar no grid</div>
       <div class="legend-row"><kbd>[</kbd><kbd>]</kbd> Tamanho do pincel −/+</div>
-      <div class="legend-row" style="opacity:.7">Pincel e Revelar: na barra</div>
       <div class="legend-cat">Mapa &amp; Visão</div>
       <div class="legend-row">Abrir/trocar mapa: <strong>Cenas</strong></div>
       <div class="legend-row"><kbd>F</kbd> Ajustar à tela</div>
@@ -4092,7 +4091,8 @@ if (!isPlayer) {
 
 // ─── Keyboard shortcuts ────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
   if (isPlayer) {
     if (e.key === 'f') {
       if (window.electronAPI) window.electronAPI.toggleFullscreen();
@@ -4105,8 +4105,15 @@ document.addEventListener('keydown', e => {
     if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return; }
   }
   switch (e.key) {
+    // ── Ferramentas no teclado numérico (1–5): Selecionar · Pincel · Retângulo · Círculo · Polígono ──
+    case '1': setShape('select'); break;
+    case '2': setShape('brush');  break;   // Pincel — antes não tinha atalho (feedback da comunidade)
+    case '3': setShape('rect');   break;
+    case '4': setShape('circle'); break;
+    case '5': setShape('poly');   break;
     case 'r': toggleRulerMode(); break;                  // Régua (era Revelar — agora só no botão)
-    case 's': document.getElementById('btn-shroud').click(); break;
+    // S alterna Revelar ↔ Ocultar num só gesto (sugestão da comunidade).
+    case 's': document.getElementById(tool === 'shroud' ? 'btn-reveal' : 'btn-shroud').click(); break;
     case 'b': e.preventDefault(); blackoutToggle(); break; // Blackout (era Pincel — agora só no botão)
     case 'e': setShape('rect');   break;
     case 'p': setShape('poly');   break;
