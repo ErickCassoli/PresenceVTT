@@ -346,6 +346,9 @@
     border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 13px; flex-shrink: 0;
   }
   #panel-token-bottom .tp-del:hover { background: rgba(170, 40, 40, 0.4); border-color: rgba(220, 80, 80, 0.5); }
+  /* Image button is non-destructive: neutral hover, accent when the token has a portrait. */
+  #panel-token-bottom #btn-token-image:hover { background: rgba(60, 40, 110, 0.6); border-color: var(--accent); }
+  #panel-token-bottom #btn-token-image.active { background: rgba(90, 209, 230, 0.22); border-color: var(--accent); }
   .tp-grid { display: flex; flex-wrap: wrap; gap: 4px; }
   .tp-cond {
     display: flex; align-items: center; gap: 5px; line-height: 1;
@@ -1335,7 +1338,9 @@
     <div class="tp-row">
       <input type="text" id="token-name" maxlength="24" placeholder="Nome do token" title="Nome">
       <input type="color" id="token-color" value="#5ad1e6" title="Cor">
+      <button id="btn-token-image" class="tp-del" title="Imagem (clique: escolher · direito: remover)">🖼</button>
       <button id="btn-token-delete" class="tp-del" title="Apagar (Delete)">🗑</button>
+      <input type="file" id="token-image-input" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none">
     </div>
     <div class="tp-row">
       <span class="tp-lbl">Tam.</span>
@@ -3284,6 +3289,10 @@ if (!isPlayer) {
   document.getElementById('btn-ruler-clear').onclick = () => rulerClearAll();
   document.getElementById('btn-token').onclick        = () => toggleTokenMode();
   document.getElementById('btn-token-delete').onclick = () => deleteSelectedToken();
+  const tokenImageInput = document.getElementById('token-image-input');
+  document.getElementById('btn-token-image').onclick = () => { tokenImageInput.value = ''; tokenImageInput.click(); };
+  document.getElementById('btn-token-image').oncontextmenu = e => { e.preventDefault(); setSelectedTokenImage(null); };
+  tokenImageInput.onchange = e => { const f = e.target.files[0]; if (f) loadTokenImageFromFile(f); };
   document.getElementById('token-size').oninput = function() {
     setSelectedTokenSize(parseFloat(this.value) * gridSize); // value is in cells
     const v = document.getElementById('token-size-val'); if (v) v.textContent = this.value + 'c';
