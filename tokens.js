@@ -115,11 +115,63 @@ function createToken(x, y) {
     x, y, size,
     label: nextTokenLabel(),
     color: TOKEN_DEFAULT_COLOR,
+    img: null,        // optional PNG/JPG portrait as a small data URL (drawn clipped to the base ring)
     conditions: [],   // reserved (dumb anchor — not rendered/used yet)
     rangeBands: [],    // reserved
   };
   tokens.push(t);
   return t;
+}
+
+// ─── Portrait image (PNG/JPG) — optional, drawn clipped to the token's base ring ─
+// Kept small (downscaled to TOKEN_IMG_MAX px) so the data URL is light to postMessage
+// to the projection on every drag. Decoded Image objects are cached per src on BOTH
+// windows so a repeated src never re-decodes; a fresh src decodes async then redraws.
+const TOKEN_IMG_MAX = 220;
+const tokenImgCache = {}; // src(dataURL) → HTMLImageElement (with ._ready flag)
+
+function tokenGetImage(src) {
+  if (!src) return null;
+  let img = tokenImgCache[src];
+  if (img) return img._ready ? img : null;
+  img = new Image();
+  img._ready = false;
+  img.onload = () => { img._ready = true; tokenScheduleRedraw(); };
+  img.onerror = () => { delete tokenImgCache[src]; };
+  img.src = src;
+  tokenImgCache[src] = img;
+  return null;
+}
+
+// Read a picked file, downscale to a square-ish thumbnail, and set it on the selected token.
+function loadTokenImageFromFile(file) {
+  if (!file || selectedTokenId == null) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, TOKEN_IMG_MAX / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * scale));
+    const h = Math.max(1, Math.round(img.height * scale));
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    cv.getContext('2d').drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    // PNG keeps transparency (character art is often cut-out); acceptable size at ≤220px.
+    let dataUrl;
+    try { dataUrl = cv.toDataURL('image/png'); }
+    catch (e) { console.error('token image encode failed', e); return; }
+    setSelectedTokenImage(dataUrl);
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); };
+  img.src = url;
+}
+
+function setSelectedTokenImage(dataUrl) {
+  const t = tokens.find(tk => tk.id === selectedTokenId);
+  if (!t) return;
+  t.img = dataUrl || null;
+  if (dataUrl) tokenGetImage(dataUrl); // warm the cache so it draws as soon as decoded
+  tokenSyncAndRedraw();
 }
 
 // Smallest positive integer not currently used as a label, so deleting a token frees
@@ -272,6 +324,8 @@ function tokenUpdatePopup() {
   if (val) val.textContent = (Math.round((t.size / cell) * 100) / 100) + 'c';
   if (nameEl && document.activeElement !== nameEl) nameEl.value = t.label; // don't clobber typing
   if (colorEl) colorEl.value = t.color || TOKEN_DEFAULT_COLOR;
+  const imgBtn = document.getElementById('btn-token-image');
+  if (imgBtn) imgBtn.classList.toggle('active', !!t.img);
   document.querySelectorAll('#token-conditions .tp-cond').forEach(b => {
     b.classList.toggle('active', Array.isArray(t.conditions) && t.conditions.includes(b.dataset.cond));
   });
@@ -360,16 +414,30 @@ function drawTokenBody(t) {
   const col = t.color || TOKEN_DEFAULT_COLOR;
   const selected = (typeof isPlayer !== 'undefined' && !isPlayer) && t.id === selectedTokenId;
 
+  const portrait = t.img ? tokenGetImage(t.img) : null;
+
   tokenCtx.save();
+  // Portrait (if any) drawn first, clipped to the base circle with a "cover" fit.
+  if (portrait) {
+    tokenCtx.save();
+    tokenCtx.beginPath(); tokenCtx.arc(c.sx, c.sy, r, 0, Math.PI * 2); tokenCtx.clip();
+    const s = Math.max((2 * r) / portrait.width, (2 * r) / portrait.height);
+    const dw = portrait.width * s, dh = portrait.height * s;
+    tokenCtx.drawImage(portrait, c.sx - dw / 2, c.sy - dh / 2, dw, dh);
+    tokenCtx.restore();
+  }
   // Thin ring at the base of where the mini sits — dark halo + colour for contrast.
   tokenCtx.lineWidth = 4;   tokenCtx.strokeStyle = 'rgba(0,0,0,0.5)';
   tokenCtx.beginPath(); tokenCtx.arc(c.sx, c.sy, r, 0, Math.PI * 2); tokenCtx.stroke();
   tokenCtx.lineWidth = 2.5; tokenCtx.strokeStyle = col;
   tokenCtx.beginPath(); tokenCtx.arc(c.sx, c.sy, r, 0, Math.PI * 2); tokenCtx.stroke();
-  // Very faint fill so it reads on busy maps but never hides a mini placed on top.
-  tokenCtx.globalAlpha = 0.10; tokenCtx.fillStyle = col;
-  tokenCtx.beginPath(); tokenCtx.arc(c.sx, c.sy, r, 0, Math.PI * 2); tokenCtx.fill();
-  tokenCtx.globalAlpha = 1;
+  // Very faint fill so it reads on busy maps but never hides a mini placed on top —
+  // skipped when a portrait fills the ring.
+  if (!portrait) {
+    tokenCtx.globalAlpha = 0.10; tokenCtx.fillStyle = col;
+    tokenCtx.beginPath(); tokenCtx.arc(c.sx, c.sy, r, 0, Math.PI * 2); tokenCtx.fill();
+    tokenCtx.globalAlpha = 1;
+  }
   if (selected) {
     tokenCtx.setLineDash([4, 3]); tokenCtx.lineWidth = 1.5; tokenCtx.strokeStyle = '#fff';
     tokenCtx.beginPath(); tokenCtx.arc(c.sx, c.sy, r + 5, 0, Math.PI * 2); tokenCtx.stroke();

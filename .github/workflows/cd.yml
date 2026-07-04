@@ -62,14 +62,20 @@ jobs:
           # Unsigned by choice (no paid certs) — stop electron-builder hunting
           # for a signing identity, otherwise the mac build fails.
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          # electron-updater reads the token from app-update.yml at runtime, not here;
+          # GH_TOKEN just lets electron-builder resolve the publish config without warning.
+          GH_TOKEN: ${{ github.token }}
       - name: Publish to the GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.check-version.outputs.version }}
           name: v${{ needs.check-version.outputs.version }}
           # Each OS uploads only its own artifact; the other globs match nothing
-          # on that runner, which is fine.
+          # on that runner, which is fine. The latest*.yml + *.blockmap files are the
+          # update metadata electron-updater fetches to detect and download new versions.
           files: |
             dist/*.exe
             dist/*.dmg
             dist/*.AppImage
+            dist/latest*.yml
+            dist/*.blockmap

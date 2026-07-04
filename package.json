@@ -30,9 +30,17 @@
     "productName": "presenceVTT",
     "icon": "build/icon.png",
     "artifactName": "${productName}.${ext}",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ErickCassoli",
+        "repo": "PresenceVTT"
+      }
+    ],
     "files": [
       "index.html",
       "splash.html",
+      "i18n.js",
       "lib/pixi.min.js",
       "lib/howler.min.js",
       "renderer.js",
@@ -50,6 +58,7 @@
       "soundboard.js",
       "blackout.js",
       "backup.js",
+      "shortcuts.js",
       "fog.js",
       "tools.js",
       "sceneStore.js",
@@ -86,6 +95,7 @@
   },
   "dependencies": {
     "archiver": "^5.3.2",
+    "electron-updater": "^6.3.9",
     "yauzl": "^2.10.0"
   },
   "devDependencies": {

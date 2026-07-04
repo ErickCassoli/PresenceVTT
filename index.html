@@ -346,6 +346,9 @@
     border-radius: 5px; padding: 4px 8px; cursor: pointer; font-size: 13px; flex-shrink: 0;
   }
   #panel-token-bottom .tp-del:hover { background: rgba(170, 40, 40, 0.4); border-color: rgba(220, 80, 80, 0.5); }
+  /* Image button is non-destructive: neutral hover, accent when the token has a portrait. */
+  #panel-token-bottom #btn-token-image:hover { background: rgba(60, 40, 110, 0.6); border-color: var(--accent); }
+  #panel-token-bottom #btn-token-image.active { background: rgba(90, 209, 230, 0.22); border-color: var(--accent); }
   .tp-grid { display: flex; flex-wrap: wrap; gap: 4px; }
   .tp-cond {
     display: flex; align-items: center; gap: 5px; line-height: 1;
@@ -754,6 +757,37 @@
     flex-shrink: 0;
     white-space: nowrap;
   }
+  /* Configurable-shortcut rows: fixed key column so labels line up. */
+  #shortcut-legend .sc-row { align-items: center; }
+  #shortcut-legend .sc-keys {
+    display: inline-flex; align-items: center; gap: 3px;
+    min-width: 108px; flex-shrink: 0; justify-content: flex-start;
+  }
+  #shortcut-legend .sc-or { color: #6858b0; }
+  #shortcut-legend #legend-edit-toggle {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.02em; text-transform: none;
+    background: rgba(100, 80, 200, 0.18); border: 1px solid rgba(140, 110, 240, 0.32);
+    color: #c8bffc; border-radius: 6px; padding: 3px 10px; cursor: pointer; margin-left: auto; margin-right: 10px;
+  }
+  #shortcut-legend #legend-edit-toggle:hover { background: rgba(120, 95, 235, 0.3); }
+  #shortcut-legend #legend-edit-toggle.active { background: var(--accent, #7c5cff); color: #fff; border-color: var(--accent, #7c5cff); }
+  #shortcut-legend .sc-chip-btn {
+    background: rgba(100, 80, 200, 0.22); border: 1px dashed rgba(140, 110, 240, 0.5);
+    color: #c0b8e8; border-radius: 4px; padding: 1px 6px; font-size: 11px; cursor: pointer;
+    min-width: 92px; text-align: center;
+  }
+  #shortcut-legend .sc-chip-btn:hover { border-color: var(--accent, #7c5cff); color: #fff; }
+  #shortcut-legend .sc-chip-btn.capturing { border-style: solid; background: var(--accent, #7c5cff); color: #fff; }
+  #shortcut-legend .sc-reset {
+    background: none; border: none; color: #8a7fc0; cursor: pointer; font-size: 13px; padding: 0 2px; line-height: 1;
+  }
+  #shortcut-legend .sc-reset:hover { color: #fff; }
+  #shortcut-legend .legend-foot { margin-top: 12px; display: flex; justify-content: flex-end; }
+  #shortcut-legend #legend-reset-all {
+    font-size: 11px; background: rgba(170, 60, 60, 0.25); border: 1px solid rgba(210, 90, 90, 0.4);
+    color: #f0d0d0; border-radius: 6px; padding: 4px 12px; cursor: pointer;
+  }
+  #shortcut-legend #legend-reset-all:hover { background: rgba(190, 70, 70, 0.4); }
   #legend-backdrop {
     position: fixed;
     inset: 0;
@@ -1126,6 +1160,66 @@
   }
   #blackout-indicator.on { display: block; }
 
+  /* ===== AUTO-UPDATE TOAST (master window only) ===== */
+  #update-toast {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 13500;
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 14px;
+    border-radius: 9px;
+    background: var(--surface, rgba(30, 24, 54, 0.95));
+    border: 1px solid var(--accent, #7c5cff);
+    color: var(--text, #eee);
+    font: 500 13px system-ui, "Segoe UI", sans-serif;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  }
+  #update-toast.on { display: flex; }
+  #update-toast button {
+    border: 1px solid var(--accent, #7c5cff);
+    background: var(--accent, #7c5cff);
+    color: #fff;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font: 600 12px system-ui, "Segoe UI", sans-serif;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  #update-toast button.ghost { background: transparent; color: var(--text, #eee); border-color: var(--border, rgba(255,255,255,0.2)); }
+
+  /* ===== LANGUAGE SWITCH (master window only) ===== */
+  #lang-switch {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 12000;
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 8px;
+    background: var(--surface, rgba(30, 24, 54, 0.9));
+    border: 1px solid var(--border, rgba(255,255,255,0.14));
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+    zoom: var(--ui-zoom, 1);
+  }
+  #lang-switch button {
+    border: none;
+    background: transparent;
+    color: var(--text-dim, #b9b4d0);
+    border-radius: 6px;
+    padding: 3px 9px;
+    font: 700 11px system-ui, "Segoe UI", sans-serif;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+  }
+  #lang-switch button:hover { color: var(--text, #fff); }
+  #lang-switch button.active { background: var(--accent, #7c5cff); color: #fff; }
+  .player-mode #lang-switch { display: none !important; }
+
   /* ===== MAP PROGRESS OVERLAY ===== */
   #map-progress {
     position: fixed;
@@ -1335,7 +1429,9 @@
     <div class="tp-row">
       <input type="text" id="token-name" maxlength="24" placeholder="Nome do token" title="Nome">
       <input type="color" id="token-color" value="#5ad1e6" title="Cor">
+      <button id="btn-token-image" class="tp-del" title="Imagem (clique: escolher · direito: remover)">🖼</button>
       <button id="btn-token-delete" class="tp-del" title="Apagar (Delete)">🗑</button>
+      <input type="file" id="token-image-input" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none">
     </div>
     <div class="tp-row">
       <span class="tp-lbl">Tam.</span>
@@ -1374,10 +1470,10 @@
 
     <!-- Reveal / Shroud toggle -->
     <div class="tool-reveal-shroud">
-      <button id="btn-reveal" class="tool-btn reveal-btn active" title="Revelar">
+      <button id="btn-reveal" class="tool-btn reveal-btn active" title="Revelar (S alterna)">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
       </button>
-      <button id="btn-shroud" class="tool-btn shroud-btn" title="Ocultar (S)">
+      <button id="btn-shroud" class="tool-btn shroud-btn" title="Ocultar (S alterna)">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"/></svg>
       </button>
     </div>
@@ -1385,19 +1481,19 @@
     <div class="toolbar-divider"></div>
 
     <!-- Tools: Select, Polygon, Rectangle, Circle, Brush -->
-    <button id="btn-select" class="tool-btn" title="Selecionar / Mover (V)">
+    <button id="btn-select" class="tool-btn" title="Selecionar / Mover (1 · V)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 4 7.07 17 2.51-7.39L21 11.07 4 4z"/></svg>
     </button>
-    <button id="btn-poly" class="tool-btn" title="Polígono (P)">
+    <button id="btn-poly" class="tool-btn" title="Polígono (5 · P)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12,3.5 20,9.5 17,19 7,19 4,9.5"/></svg>
     </button>
-    <button id="btn-rect" class="tool-btn" title="Retângulo (E)">
+    <button id="btn-rect" class="tool-btn" title="Retângulo (3 · E)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/></svg>
     </button>
-    <button id="btn-circle" class="tool-btn" title="Círculo (C)">
+    <button id="btn-circle" class="tool-btn" title="Círculo (4 · C)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>
     </button>
-    <button id="btn-brush" class="tool-btn active" title="Pincel">
+    <button id="btn-brush" class="tool-btn active" title="Pincel (2)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 4.5a2.12 2.12 0 013 3L7 20l-4 1 1-4L16.5 4.5z"/><path d="M15 6l3 3"/></svg>
     </button>
 
@@ -1621,42 +1717,12 @@
 <div id="shortcut-legend" class="glass-panel" style="display:none">
   <div class="legend-title">
     <span>Atalhos de teclado</span>
+    <button id="legend-edit-toggle" title="Personalizar atalhos">✎ Editar</button>
     <span class="legend-hint">? ou Esc para fechar</span>
   </div>
-  <div class="legend-cols">
-    <div>
-      <div class="legend-cat">Ferramentas</div>
-      <div class="legend-row"><kbd>R</kbd> Régua</div>
-      <div class="legend-row"><kbd>T</kbd> Token (âncora de mini)</div>
-      <div class="legend-row"><kbd>E</kbd> Retângulo</div>
-      <div class="legend-row"><kbd>P</kbd> Polígono</div>
-      <div class="legend-row"><kbd>C</kbd> Círculo</div>
-      <div class="legend-row"><kbd>V</kbd> Selecionar / Mover</div>
-      <div class="legend-row"><kbd>S</kbd> Ocultar</div>
-      <div class="legend-row"><kbd>N</kbd> Grudar no grid</div>
-      <div class="legend-row"><kbd>[</kbd><kbd>]</kbd> Tamanho do pincel −/+</div>
-      <div class="legend-row" style="opacity:.7">Pincel e Revelar: na barra</div>
-      <div class="legend-cat">Mapa &amp; Visão</div>
-      <div class="legend-row">Abrir/trocar mapa: <strong>Cenas</strong></div>
-      <div class="legend-row"><kbd>F</kbd> Ajustar à tela</div>
-      <div class="legend-row"><kbd>Ctrl Z</kbd> Desfazer</div>
-      <div class="legend-row"><kbd>Ctrl Y</kbd> Refazer</div>
-    </div>
-    <div>
-      <div class="legend-cat">Fog &amp; Grid</div>
-      <div class="legend-row"><kbd>G</kbd> Grid liga/desliga</div>
-      <div class="legend-row"><kbd>A</kbd> Animação do fog</div>
-      <div class="legend-row"><kbd>T</kbd> Alternar modo do polígono</div>
-      <div class="legend-row"><kbd>Del</kbd> Apagar polígono / vértice</div>
-      <div class="legend-row"><kbd>Esc</kbd> Desselecionar vértice / polígono</div>
-      <div class="legend-row"><kbd>2×</kbd> Clique na aresta → insere vértice</div>
-      <div class="legend-cat">Projeção</div>
-      <div class="legend-row"><kbd>Espaço</kbd> Ir ao vivo</div>
-      <div class="legend-row"><kbd>Shift S</kbd> Ir ao vivo (modo manual)</div>
-      <div class="legend-row"><kbd>Shift R</kbd> Mostrar régua aos jogadores</div>
-      <div class="legend-row"><kbd>B</kbd> Blackout da projeção</div>
-      <div class="legend-row"><kbd>F</kbd> Tela cheia <span style="opacity:.6">(na projeção)</span></div>
-    </div>
+  <div id="legend-body"><!-- rendered by shortcuts.js --></div>
+  <div class="legend-foot">
+    <button id="legend-reset-all" style="display:none">Restaurar padrões</button>
   </div>
 </div>
 
@@ -1705,6 +1771,19 @@
 <!-- Blackout (PresenceVTT): opaque cover shown ONLY on the projection; the DM shows the badge instead. -->
 <div id="blackout"></div>
 <div id="blackout-indicator">⬛ BLACKOUT ATIVO</div>
+
+<!-- Language switch (master window only; wired by i18n.js) -->
+<div id="lang-switch" title="Idioma / Language">
+  <button data-lang="pt">PT</button>
+  <button data-lang="en">EN</button>
+</div>
+
+<!-- Auto-update toast (master window only; driven by electronAPI.onUpdateStatus) -->
+<div id="update-toast">
+  <span id="update-toast-msg"></span>
+  <button id="update-toast-btn" style="display:none">Reiniciar e atualizar</button>
+  <button id="update-toast-dismiss" class="ghost" title="Fechar">✕</button>
+</div>
 
 <div id="map-progress">
   <div id="map-progress-label">Salvando vídeo do mapa...</div>
@@ -1772,6 +1851,7 @@
 <script src="soundboard.js"></script>
 <script src="blackout.js"></script>
 <script src="backup.js"></script>
+<script src="shortcuts.js"></script>
 <script>
 'use strict';
 
@@ -3285,6 +3365,10 @@ if (!isPlayer) {
   document.getElementById('btn-ruler-clear').onclick = () => rulerClearAll();
   document.getElementById('btn-token').onclick        = () => toggleTokenMode();
   document.getElementById('btn-token-delete').onclick = () => deleteSelectedToken();
+  const tokenImageInput = document.getElementById('token-image-input');
+  document.getElementById('btn-token-image').onclick = () => { tokenImageInput.value = ''; tokenImageInput.click(); };
+  document.getElementById('btn-token-image').oncontextmenu = e => { e.preventDefault(); setSelectedTokenImage(null); };
+  tokenImageInput.onchange = e => { const f = e.target.files[0]; if (f) loadTokenImageFromFile(f); };
   document.getElementById('token-size').oninput = function() {
     setSelectedTokenSize(parseFloat(this.value) * gridSize); // value is in cells
     const v = document.getElementById('token-size-val'); if (v) v.textContent = this.value + 'c';
@@ -4091,8 +4175,12 @@ if (!isPlayer) {
 }
 
 // ─── Keyboard shortcuts ────────────────────────────────────────────────────────
+// Keys are user-configurable: shortcuts.js owns the bindings + the editable legend,
+// and shortcutMatchAction(e) maps an event to an action id. Structural, contextual
+// keys (Delete/Escape/brush-size) stay fixed here.
 document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
   if (isPlayer) {
     if (e.key === 'f') {
       if (window.electronAPI) window.electronAPI.toggleFullscreen();
@@ -4100,69 +4188,77 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  if (e.ctrlKey || e.metaKey) {
-    if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
-    if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return; }
-  }
-  switch (e.key) {
-    case 'r': toggleRulerMode(); break;                  // Régua (era Revelar — agora só no botão)
-    case 's': document.getElementById('btn-shroud').click(); break;
-    case 'b': e.preventDefault(); blackoutToggle(); break; // Blackout (era Pincel — agora só no botão)
-    case 'e': setShape('rect');   break;
-    case 'p': setShape('poly');   break;
-    case 'c': setShape('circle'); break;
-    case 'v': setShape('select'); break;
-    case 'n': document.getElementById('btn-snap').click();   break;
-    case 'g': document.getElementById('btn-grid').click();   break;
-    case 'a': toggleAoeMode(); break; // modo Área (a animação do fog está no botão Animate do painel)
-    case 'd': toggleDrawMode(); break; // modo Marcações (ping / traçado / risco)
-    case 'f': if (mapOffscreen) { fitToScreen(); viewportDirty = true; scheduleRender(); } break;
-    case 'Delete':
-      if (typeof tokenIsOn === 'function' && tokenIsOn() && selectedTokenId != null) { deleteSelectedToken(); break; }
-      if (typeof aoeIsOn === 'function' && aoeIsOn() && aoeSelectedId != null) { aoeDeleteSelected(); break; }
-      if (shape === 'select' && selectedPolygonId != null && selectedVertexIndex >= 0) {
-        const poly = polygons.find(p => p.id === selectedPolygonId);
-        if (poly && poly.vertices.length > 3) {
-          pushUndo();
-          poly.vertices.splice(selectedVertexIndex, 1);
-          if (poly.cornerRadii) poly.cornerRadii.splice(selectedVertexIndex, 1);
-          selectedVertexIndex = -1;
-          rebuildFogFromPolygons();
-          startFogTransition();
-          rebuildFogEffect();
-          fogDirty = true;
-          scheduleRender();
-          scheduleAutoSync();
-          drawCursor(lastScreenX, lastScreenY);
-        }
-      } else if (selectedPolygonId != null) {
-        deleteSelectedPolygon();
-      }
-      break;
-    case 'Escape':
-      if (legendVisible) { toggleLegend(); break; }
-      if (activePolygon) {
-        activePolygon = null;
-        drawCursor(null, null);
-      } else if (selectedVertexIndex >= 0) {
+  // While rebinding, shortcuts.js consumes the key at capture phase — do nothing here.
+  if (typeof shortcutCapturing === 'function' && shortcutCapturing()) return;
+
+  // ── Fixed structural keys (not rebindable) ──
+  if (e.key === 'Delete') {
+    if (typeof tokenIsOn === 'function' && tokenIsOn() && selectedTokenId != null) { deleteSelectedToken(); return; }
+    if (typeof aoeIsOn === 'function' && aoeIsOn() && aoeSelectedId != null) { aoeDeleteSelected(); return; }
+    if (shape === 'select' && selectedPolygonId != null && selectedVertexIndex >= 0) {
+      const poly = polygons.find(p => p.id === selectedPolygonId);
+      if (poly && poly.vertices.length > 3) {
+        pushUndo();
+        poly.vertices.splice(selectedVertexIndex, 1);
+        if (poly.cornerRadii) poly.cornerRadii.splice(selectedVertexIndex, 1);
         selectedVertexIndex = -1;
+        rebuildFogFromPolygons();
+        startFogTransition();
+        rebuildFogEffect();
+        fogDirty = true;
+        scheduleRender();
+        scheduleAutoSync();
         drawCursor(lastScreenX, lastScreenY);
-      } else if (selectedPolygonId != null) {
-        selectedPolygonId = null;
-        drawCursor(null, null);
       }
-      break;
-    case 't': toggleTokenMode(); break; // modo Token (o reveal/shroud do polígono está nos botões ◯/◉ do painel)
-    case '[': brushSize = Math.max(5, brushSize - 10);
-              document.getElementById('brush-size').value = brushSize;
-              document.getElementById('brush-size-label').textContent = brushSize; break;
-    case ']': brushSize = Math.min(300, brushSize + 10);
-              document.getElementById('brush-size').value = brushSize;
-              document.getElementById('brush-size-label').textContent = brushSize; break;
-    case 'S': if (!autoSync) { e.preventDefault(); sendToPlayer(); } break;
-    case 'R': toggleRulerShareToPlayers(); break;        // Shift+R: mostrar/ocultar régua aos jogadores
-    case ' ': e.preventDefault(); sendToPlayer(); break;
-    case '?': if (!isPlayer) toggleLegend(); break;
+    } else if (selectedPolygonId != null) {
+      deleteSelectedPolygon();
+    }
+    return;
+  }
+  if (e.key === 'Escape') {
+    if (legendVisible) { toggleLegend(); return; }
+    if (activePolygon) { activePolygon = null; drawCursor(null, null); }
+    else if (selectedVertexIndex >= 0) { selectedVertexIndex = -1; drawCursor(lastScreenX, lastScreenY); }
+    else if (selectedPolygonId != null) { selectedPolygonId = null; drawCursor(null, null); }
+    return;
+  }
+  if (e.key === '[') {
+    brushSize = Math.max(5, brushSize - 10);
+    document.getElementById('brush-size').value = brushSize;
+    document.getElementById('brush-size-label').textContent = brushSize;
+    return;
+  }
+  if (e.key === ']') {
+    brushSize = Math.min(300, brushSize + 10);
+    document.getElementById('brush-size').value = brushSize;
+    document.getElementById('brush-size-label').textContent = brushSize;
+    return;
+  }
+
+  // ── Configurable action shortcuts ──
+  const act = (typeof shortcutMatchAction === 'function') ? shortcutMatchAction(e) : null;
+  if (!act) return;
+  switch (act) {
+    case 'tool-select':   setShape('select'); break;
+    case 'tool-brush':    setShape('brush');  break;
+    case 'tool-rect':     setShape('rect');   break;
+    case 'tool-circle':   setShape('circle'); break;
+    case 'tool-poly':     setShape('poly');   break;
+    case 'reveal-shroud': document.getElementById(tool === 'shroud' ? 'btn-reveal' : 'btn-shroud').click(); break;
+    case 'ruler':         toggleRulerMode(); break;
+    case 'token':         toggleTokenMode(); break;
+    case 'aoe':           toggleAoeMode(); break;
+    case 'draw':          toggleDrawMode(); break;
+    case 'grid':          document.getElementById('btn-grid').click(); break;
+    case 'snap':          document.getElementById('btn-snap').click(); break;
+    case 'fit':           if (mapOffscreen) { fitToScreen(); viewportDirty = true; scheduleRender(); } break;
+    case 'undo':          e.preventDefault(); undo(); break;
+    case 'redo':          e.preventDefault(); redo(); break;
+    case 'go-live':       e.preventDefault(); sendToPlayer(); break;
+    case 'go-live-manual': if (!autoSync) { e.preventDefault(); sendToPlayer(); } break;
+    case 'ruler-share':   toggleRulerShareToPlayers(); break;
+    case 'blackout':      e.preventDefault(); blackoutToggle(); break;
+    case 'legend':        toggleLegend(); break;
   }
 });
 
@@ -4190,7 +4286,34 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// ── Auto-update toast (master window only) ──────────────────────────────────────
+if (!isPlayer && window.electronAPI && electronAPI.onUpdateStatus) {
+  const upToast = document.getElementById('update-toast');
+  const upMsg   = document.getElementById('update-toast-msg');
+  const upBtn   = document.getElementById('update-toast-btn');
+  const upDismiss = document.getElementById('update-toast-dismiss');
+  upBtn.onclick = () => electronAPI.installUpdate();
+  upDismiss.onclick = () => upToast.classList.remove('on');
+  electronAPI.onUpdateStatus(d => {
+    if (!d) return;
+    const ver = d.version ? ' ' + d.version : '';
+    if (d.status === 'available') {
+      upMsg.textContent = updT('Baixando atualização') + ver + '…';
+      upBtn.style.display = 'none'; upToast.classList.add('on');
+    } else if (d.status === 'downloading') {
+      upMsg.textContent = updT('Baixando atualização') + '… ' + (d.percent || 0) + '%';
+      upBtn.style.display = 'none'; upToast.classList.add('on');
+    } else if (d.status === 'ready') {
+      upMsg.textContent = updT('Atualização pronta') + ver + '.';
+      upBtn.style.display = ''; upToast.classList.add('on');
+    }
+  });
+}
+// Tiny translator shim: uses i18n's t() (source-string → EN) when present, else the PT source.
+function updT(src) { return (typeof t === 'function') ? t(src) : src; }
+
 if (!isPlayer) initScenes().catch(console.error);
 </script>
+<script src="i18n.js"></script>
 </body>
 </html>
