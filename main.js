@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const archiver = require('archiver');
@@ -52,9 +52,16 @@ function createDMWindow() {
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
+    minWidth: 900,
+    minHeight: 600,
     title: 'presenceVTT',
     icon: windowIcon,
     show: false,
+    // Frameless: the app draws its own titlebar (min/maximize/close live in the
+    // in-app top bar, wired via the win-* IPC below). The projection window keeps
+    // the native OS frame (its overrideBrowserWindowOptions don't set frame:false).
+    frame: false,
+    backgroundColor: '#14161b',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -66,6 +73,11 @@ function createDMWindow() {
   win.loadFile('index.html');
   dmWindow = win;
   win.on('closed', () => { if (dmWindow === win) dmWindow = null; });
+
+  // Keep the custom titlebar's maximize/restore icon in sync with the real state.
+  const sendMaxState = () => { if (!win.isDestroyed()) win.webContents.send('window-maximized-changed', win.isMaximized()); };
+  win.on('maximize', sendMaxState);
+  win.on('unmaximize', sendMaxState);
 
   // Hand off from splash to the app once the renderer has painted. Keep the splash
   // up for a brief minimum so it reads as a branded intro rather than a flash, and
@@ -116,6 +128,22 @@ ipcMain.on('set-fullscreen', (event, flag) => {
 ipcMain.on('toggle-fullscreen', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win) win.setFullScreen(!win.isFullScreen());
+});
+
+// --- Custom titlebar window controls (DM window is frameless) ---
+ipcMain.on('win-minimize', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize();
+});
+ipcMain.on('win-toggle-maximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  if (win.isMaximized()) win.unmaximize(); else win.maximize();
+});
+ipcMain.on('win-close', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.close();
+});
+ipcMain.handle('win-is-maximized', (event) => {
+  return !!BrowserWindow.fromWebContents(event.sender)?.isMaximized();
 });
 
 let mapsDir;
@@ -394,21 +422,49 @@ function sendUpdateStatus(payload) {
   if (dmWindow && !dmWindow.isDestroyed()) dmWindow.webContents.send('update-status', payload);
 }
 
+// True only where electron-updater can actually update in place. Both the automatic
+// startup check and the manual "check for updates" button gate on this.
+function autoUpdateSupported() {
+  return app.isPackaged                       // dev (`npm start`) never self-updates
+    && !process.env.PORTABLE_EXECUTABLE_DIR   // portable build → manual re-download
+    && process.platform !== 'darwin';         // unsigned mac can't Squirrel-update
+}
+
 function initAutoUpdate() {
-  if (!app.isPackaged) return;                       // dev (`npm start`) never self-updates
-  if (process.env.PORTABLE_EXECUTABLE_DIR) return;   // portable build → manual re-download
-  if (process.platform === 'darwin') return;         // unsigned mac can't Squirrel-update
+  if (!autoUpdateSupported()) return;
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('update-available', (info) => sendUpdateStatus({ status: 'available', version: info && info.version }));
+  autoUpdater.on('update-not-available', () => sendUpdateStatus({ status: 'none' }));
   autoUpdater.on('download-progress', (p) => sendUpdateStatus({ status: 'downloading', percent: Math.round(p && p.percent || 0) }));
   autoUpdater.on('update-downloaded', (info) => sendUpdateStatus({ status: 'ready', version: info && info.version }));
-  autoUpdater.on('error', (err) => console.error('[auto-update]', err && err.message ? err.message : err));
+  autoUpdater.on('error', (err) => { console.error('[auto-update]', err && err.message ? err.message : err); sendUpdateStatus({ status: 'error' }); });
 
   autoUpdater.checkForUpdates().catch((err) => console.error('[auto-update] check failed:', err && err.message ? err.message : err));
 }
+
+// Manual check triggered from the Config menu. Resolves with whether updating is even
+// possible on this build so the UI can explain why nothing happens; the actual result
+// ('available' / 'none' / 'error') still flows back through the update-status events.
+ipcMain.handle('check-for-updates', async () => {
+  if (!autoUpdateSupported()) {
+    const reason = !app.isPackaged ? 'dev'
+      : process.env.PORTABLE_EXECUTABLE_DIR ? 'portable'
+      : process.platform === 'darwin' ? 'mac' : 'unsupported';
+    return { supported: false, reason };
+  }
+  try {
+    sendUpdateStatus({ status: 'checking' });
+    await autoUpdater.checkForUpdates();
+    return { supported: true };
+  } catch (err) {
+    console.error('[auto-update] manual check failed:', err && err.message ? err.message : err);
+    sendUpdateStatus({ status: 'error' });
+    return { supported: false, reason: 'error' };
+  }
+});
 
 // Renderer asks to restart into the freshly downloaded update.
 ipcMain.on('install-update', () => {
@@ -419,6 +475,13 @@ ipcMain.on('install-update', () => {
 app.whenReady().then(() => {
   mapsDir = path.join(app.getPath('userData'), 'maps');
   fs.mkdirSync(mapsDir, { recursive: true });
+
+  // Local desktop app: grant media so navigator.mediaDevices.enumerateDevices()
+  // exposes audio-output device *labels* (Chromium hides them until media access is
+  // granted). Needed for the Config → audio output device picker.
+  session.defaultSession.setPermissionCheckHandler(() => true);
+  session.defaultSession.setPermissionRequestHandler((_wc, _permission, cb) => cb(true));
+
   createDMWindow();
   initAutoUpdate();
   app.on('activate', () => {

@@ -247,6 +247,29 @@
     'Atualização pronta': 'Update ready',
     'Reiniciar e atualizar': 'Restart and update',
 
+    // ── Titlebar + Config menu ────────────────────────────────────────────────
+    'Ajuda': 'Help',
+    'Ajuda / Atalhos de teclado (?)': 'Help / Keyboard shortcuts (?)',
+    'Configurações': 'Settings',
+    'Idioma / Language': 'Language',
+    'Dispositivo de áudio (soundboard)': 'Audio device (soundboard)',
+    'Saída de áudio do soundboard': 'Soundboard audio output',
+    'Dispositivo padrão do sistema': 'System default device',
+    'Saída de áudio': 'Audio output',
+    'Sem dispositivos de áudio disponíveis': 'No audio devices available',
+    '⌨ Configurações de atalho…': '⌨ Keyboard shortcut settings…',
+    '⟳ Verificar atualizações': '⟳ Check for updates',
+    'Minimizar': 'Minimize',
+    'Maximizar': 'Maximize',
+    // Update messages (JS-composed via t())
+    'Você está atualizado.': 'You are up to date.',
+    'Verificando atualizações…': 'Checking for updates…',
+    'Falha ao verificar atualizações.': 'Failed to check for updates.',
+    'Atualização automática indisponível no modo de desenvolvimento.': 'Automatic updates unavailable in development mode.',
+    'Versão portátil: baixe a nova versão manualmente.': 'Portable build: download the new version manually.',
+    'Atualização automática indisponível no macOS.': 'Automatic updates unavailable on macOS.',
+    'Atualização automática indisponível nesta versão.': 'Automatic updates unavailable in this build.',
+
     // ── Soundboard ────────────────────────────────────────────────────────────
     'Ambientes': 'Ambience',
     'Tela da mesa (projeção)': 'Table screen (projection)',
