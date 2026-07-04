@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const archiver = require('archiver');
 const yauzl = require('yauzl');
+const { autoUpdater } = require('electron-updater');
 
 // Portable data: store all Chromium user data (IndexedDB, caches) next to the
 // .exe so the entire folder can be copied between PCs.
@@ -42,6 +43,8 @@ function createSplashWindow() {
   return splash;
 }
 
+let dmWindow = null; // the master window — target for update notifications (never the projection)
+
 function createDMWindow() {
   const splash = createSplashWindow();
   const splashShownAt = Date.now();
@@ -61,6 +64,8 @@ function createDMWindow() {
 
   win.setMenu(null);
   win.loadFile('index.html');
+  dmWindow = win;
+  win.on('closed', () => { if (dmWindow === win) dmWindow = null; });
 
   // Hand off from splash to the app once the renderer has painted. Keep the splash
   // up for a brief minimum so it reads as a branded intro rather than a flash, and
@@ -379,10 +384,43 @@ ipcMain.handle('read-backup-profile', async (_event, zipPath) => {
   });
 });
 
+// --- Auto-update (electron-updater) ---
+// Ships updates to already-installed apps. Works for the Windows NSIS installer and
+// the Linux AppImage. Skipped for the Windows *portable* build (updating a copyable
+// folder in place isn't meaningful — those users re-download) and unsigned macOS
+// (Squirrel.Mac requires a signature). Any failure is logged and swallowed so a
+// network hiccup or an un-updatable target never disturbs the session.
+function sendUpdateStatus(payload) {
+  if (dmWindow && !dmWindow.isDestroyed()) dmWindow.webContents.send('update-status', payload);
+}
+
+function initAutoUpdate() {
+  if (!app.isPackaged) return;                       // dev (`npm start`) never self-updates
+  if (process.env.PORTABLE_EXECUTABLE_DIR) return;   // portable build → manual re-download
+  if (process.platform === 'darwin') return;         // unsigned mac can't Squirrel-update
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-available', (info) => sendUpdateStatus({ status: 'available', version: info && info.version }));
+  autoUpdater.on('download-progress', (p) => sendUpdateStatus({ status: 'downloading', percent: Math.round(p && p.percent || 0) }));
+  autoUpdater.on('update-downloaded', (info) => sendUpdateStatus({ status: 'ready', version: info && info.version }));
+  autoUpdater.on('error', (err) => console.error('[auto-update]', err && err.message ? err.message : err));
+
+  autoUpdater.checkForUpdates().catch((err) => console.error('[auto-update] check failed:', err && err.message ? err.message : err));
+}
+
+// Renderer asks to restart into the freshly downloaded update.
+ipcMain.on('install-update', () => {
+  try { autoUpdater.quitAndInstall(); }
+  catch (err) { console.error('[auto-update] quitAndInstall failed:', err && err.message ? err.message : err); }
+});
+
 app.whenReady().then(() => {
   mapsDir = path.join(app.getPath('userData'), 'maps');
   fs.mkdirSync(mapsDir, { recursive: true });
   createDMWindow();
+  initAutoUpdate();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createDMWindow();
   });

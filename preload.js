@@ -29,4 +29,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('backup-progress', handler);
     return () => ipcRenderer.removeListener('backup-progress', handler);
   },
+
+  // Auto-update: the main process pushes status ('available' | 'downloading' | 'ready');
+  // installUpdate restarts into the downloaded version.
+  onUpdateStatus: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('update-status', handler);
+    return () => ipcRenderer.removeListener('update-status', handler);
+  },
+  installUpdate: () => ipcRenderer.send('install-update'),
 });

@@ -30,6 +30,13 @@
     "productName": "presenceVTT",
     "icon": "build/icon.png",
     "artifactName": "${productName}.${ext}",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ErickCassoli",
+        "repo": "PresenceVTT"
+      }
+    ],
     "files": [
       "index.html",
       "splash.html",
@@ -86,6 +93,7 @@
   },
   "dependencies": {
     "archiver": "^5.3.2",
+    "electron-updater": "^6.3.9",
     "yauzl": "^2.10.0"
   },
   "devDependencies": {
