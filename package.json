@@ -58,6 +58,7 @@
       "soundboard.js",
       "blackout.js",
       "backup.js",
+      "shortcuts.js",
       "fog.js",
       "tools.js",
       "sceneStore.js",

@@ -757,6 +757,37 @@
     flex-shrink: 0;
     white-space: nowrap;
   }
+  /* Configurable-shortcut rows: fixed key column so labels line up. */
+  #shortcut-legend .sc-row { align-items: center; }
+  #shortcut-legend .sc-keys {
+    display: inline-flex; align-items: center; gap: 3px;
+    min-width: 108px; flex-shrink: 0; justify-content: flex-start;
+  }
+  #shortcut-legend .sc-or { color: #6858b0; }
+  #shortcut-legend #legend-edit-toggle {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.02em; text-transform: none;
+    background: rgba(100, 80, 200, 0.18); border: 1px solid rgba(140, 110, 240, 0.32);
+    color: #c8bffc; border-radius: 6px; padding: 3px 10px; cursor: pointer; margin-left: auto; margin-right: 10px;
+  }
+  #shortcut-legend #legend-edit-toggle:hover { background: rgba(120, 95, 235, 0.3); }
+  #shortcut-legend #legend-edit-toggle.active { background: var(--accent, #7c5cff); color: #fff; border-color: var(--accent, #7c5cff); }
+  #shortcut-legend .sc-chip-btn {
+    background: rgba(100, 80, 200, 0.22); border: 1px dashed rgba(140, 110, 240, 0.5);
+    color: #c0b8e8; border-radius: 4px; padding: 1px 6px; font-size: 11px; cursor: pointer;
+    min-width: 92px; text-align: center;
+  }
+  #shortcut-legend .sc-chip-btn:hover { border-color: var(--accent, #7c5cff); color: #fff; }
+  #shortcut-legend .sc-chip-btn.capturing { border-style: solid; background: var(--accent, #7c5cff); color: #fff; }
+  #shortcut-legend .sc-reset {
+    background: none; border: none; color: #8a7fc0; cursor: pointer; font-size: 13px; padding: 0 2px; line-height: 1;
+  }
+  #shortcut-legend .sc-reset:hover { color: #fff; }
+  #shortcut-legend .legend-foot { margin-top: 12px; display: flex; justify-content: flex-end; }
+  #shortcut-legend #legend-reset-all {
+    font-size: 11px; background: rgba(170, 60, 60, 0.25); border: 1px solid rgba(210, 90, 90, 0.4);
+    color: #f0d0d0; border-radius: 6px; padding: 4px 12px; cursor: pointer;
+  }
+  #shortcut-legend #legend-reset-all:hover { background: rgba(190, 70, 70, 0.4); }
   #legend-backdrop {
     position: fixed;
     inset: 0;
@@ -1686,41 +1717,12 @@
 <div id="shortcut-legend" class="glass-panel" style="display:none">
   <div class="legend-title">
     <span>Atalhos de teclado</span>
+    <button id="legend-edit-toggle" title="Personalizar atalhos">✎ Editar</button>
     <span class="legend-hint">? ou Esc para fechar</span>
   </div>
-  <div class="legend-cols">
-    <div>
-      <div class="legend-cat">Ferramentas</div>
-      <div class="legend-row"><kbd>1</kbd> Selecionar / Mover <span style="opacity:.6">(ou V)</span></div>
-      <div class="legend-row"><kbd>2</kbd> Pincel</div>
-      <div class="legend-row"><kbd>3</kbd> Retângulo <span style="opacity:.6">(ou E)</span></div>
-      <div class="legend-row"><kbd>4</kbd> Círculo <span style="opacity:.6">(ou C)</span></div>
-      <div class="legend-row"><kbd>5</kbd> Polígono <span style="opacity:.6">(ou P)</span></div>
-      <div class="legend-row"><kbd>S</kbd> Alterna Revelar / Ocultar</div>
-      <div class="legend-row"><kbd>R</kbd> Régua · <kbd>T</kbd> Token</div>
-      <div class="legend-row"><kbd>N</kbd> Grudar no grid</div>
-      <div class="legend-row"><kbd>[</kbd><kbd>]</kbd> Tamanho do pincel −/+</div>
-      <div class="legend-cat">Mapa &amp; Visão</div>
-      <div class="legend-row">Abrir/trocar mapa: <strong>Cenas</strong></div>
-      <div class="legend-row"><kbd>F</kbd> Ajustar à tela</div>
-      <div class="legend-row"><kbd>Ctrl Z</kbd> Desfazer</div>
-      <div class="legend-row"><kbd>Ctrl Y</kbd> Refazer</div>
-    </div>
-    <div>
-      <div class="legend-cat">Fog &amp; Grid</div>
-      <div class="legend-row"><kbd>G</kbd> Grid liga/desliga</div>
-      <div class="legend-row"><kbd>A</kbd> Animação do fog</div>
-      <div class="legend-row"><kbd>T</kbd> Alternar modo do polígono</div>
-      <div class="legend-row"><kbd>Del</kbd> Apagar polígono / vértice</div>
-      <div class="legend-row"><kbd>Esc</kbd> Desselecionar vértice / polígono</div>
-      <div class="legend-row"><kbd>2×</kbd> Clique na aresta → insere vértice</div>
-      <div class="legend-cat">Projeção</div>
-      <div class="legend-row"><kbd>Espaço</kbd> Ir ao vivo</div>
-      <div class="legend-row"><kbd>Shift S</kbd> Ir ao vivo (modo manual)</div>
-      <div class="legend-row"><kbd>Shift R</kbd> Mostrar régua aos jogadores</div>
-      <div class="legend-row"><kbd>B</kbd> Blackout da projeção</div>
-      <div class="legend-row"><kbd>F</kbd> Tela cheia <span style="opacity:.6">(na projeção)</span></div>
-    </div>
+  <div id="legend-body"><!-- rendered by shortcuts.js --></div>
+  <div class="legend-foot">
+    <button id="legend-reset-all" style="display:none">Restaurar padrões</button>
   </div>
 </div>
 
@@ -1849,6 +1851,7 @@
 <script src="soundboard.js"></script>
 <script src="blackout.js"></script>
 <script src="backup.js"></script>
+<script src="shortcuts.js"></script>
 <script>
 'use strict';
 
@@ -4172,6 +4175,9 @@ if (!isPlayer) {
 }
 
 // ─── Keyboard shortcuts ────────────────────────────────────────────────────────
+// Keys are user-configurable: shortcuts.js owns the bindings + the editable legend,
+// and shortcutMatchAction(e) maps an event to an action id. Structural, contextual
+// keys (Delete/Escape/brush-size) stay fixed here.
 document.addEventListener('keydown', e => {
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
@@ -4182,76 +4188,77 @@ document.addEventListener('keydown', e => {
     }
     return;
   }
-  if (e.ctrlKey || e.metaKey) {
-    if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
-    if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return; }
-  }
-  switch (e.key) {
-    // ── Ferramentas no teclado numérico (1–5): Selecionar · Pincel · Retângulo · Círculo · Polígono ──
-    case '1': setShape('select'); break;
-    case '2': setShape('brush');  break;   // Pincel — antes não tinha atalho (feedback da comunidade)
-    case '3': setShape('rect');   break;
-    case '4': setShape('circle'); break;
-    case '5': setShape('poly');   break;
-    case 'r': toggleRulerMode(); break;                  // Régua (era Revelar — agora só no botão)
-    // S alterna Revelar ↔ Ocultar num só gesto (sugestão da comunidade).
-    case 's': document.getElementById(tool === 'shroud' ? 'btn-reveal' : 'btn-shroud').click(); break;
-    case 'b': e.preventDefault(); blackoutToggle(); break; // Blackout (era Pincel — agora só no botão)
-    case 'e': setShape('rect');   break;
-    case 'p': setShape('poly');   break;
-    case 'c': setShape('circle'); break;
-    case 'v': setShape('select'); break;
-    case 'n': document.getElementById('btn-snap').click();   break;
-    case 'g': document.getElementById('btn-grid').click();   break;
-    case 'a': toggleAoeMode(); break; // modo Área (a animação do fog está no botão Animate do painel)
-    case 'd': toggleDrawMode(); break; // modo Marcações (ping / traçado / risco)
-    case 'f': if (mapOffscreen) { fitToScreen(); viewportDirty = true; scheduleRender(); } break;
-    case 'Delete':
-      if (typeof tokenIsOn === 'function' && tokenIsOn() && selectedTokenId != null) { deleteSelectedToken(); break; }
-      if (typeof aoeIsOn === 'function' && aoeIsOn() && aoeSelectedId != null) { aoeDeleteSelected(); break; }
-      if (shape === 'select' && selectedPolygonId != null && selectedVertexIndex >= 0) {
-        const poly = polygons.find(p => p.id === selectedPolygonId);
-        if (poly && poly.vertices.length > 3) {
-          pushUndo();
-          poly.vertices.splice(selectedVertexIndex, 1);
-          if (poly.cornerRadii) poly.cornerRadii.splice(selectedVertexIndex, 1);
-          selectedVertexIndex = -1;
-          rebuildFogFromPolygons();
-          startFogTransition();
-          rebuildFogEffect();
-          fogDirty = true;
-          scheduleRender();
-          scheduleAutoSync();
-          drawCursor(lastScreenX, lastScreenY);
-        }
-      } else if (selectedPolygonId != null) {
-        deleteSelectedPolygon();
-      }
-      break;
-    case 'Escape':
-      if (legendVisible) { toggleLegend(); break; }
-      if (activePolygon) {
-        activePolygon = null;
-        drawCursor(null, null);
-      } else if (selectedVertexIndex >= 0) {
+  // While rebinding, shortcuts.js consumes the key at capture phase — do nothing here.
+  if (typeof shortcutCapturing === 'function' && shortcutCapturing()) return;
+
+  // ── Fixed structural keys (not rebindable) ──
+  if (e.key === 'Delete') {
+    if (typeof tokenIsOn === 'function' && tokenIsOn() && selectedTokenId != null) { deleteSelectedToken(); return; }
+    if (typeof aoeIsOn === 'function' && aoeIsOn() && aoeSelectedId != null) { aoeDeleteSelected(); return; }
+    if (shape === 'select' && selectedPolygonId != null && selectedVertexIndex >= 0) {
+      const poly = polygons.find(p => p.id === selectedPolygonId);
+      if (poly && poly.vertices.length > 3) {
+        pushUndo();
+        poly.vertices.splice(selectedVertexIndex, 1);
+        if (poly.cornerRadii) poly.cornerRadii.splice(selectedVertexIndex, 1);
         selectedVertexIndex = -1;
+        rebuildFogFromPolygons();
+        startFogTransition();
+        rebuildFogEffect();
+        fogDirty = true;
+        scheduleRender();
+        scheduleAutoSync();
         drawCursor(lastScreenX, lastScreenY);
-      } else if (selectedPolygonId != null) {
-        selectedPolygonId = null;
-        drawCursor(null, null);
       }
-      break;
-    case 't': toggleTokenMode(); break; // modo Token (o reveal/shroud do polígono está nos botões ◯/◉ do painel)
-    case '[': brushSize = Math.max(5, brushSize - 10);
-              document.getElementById('brush-size').value = brushSize;
-              document.getElementById('brush-size-label').textContent = brushSize; break;
-    case ']': brushSize = Math.min(300, brushSize + 10);
-              document.getElementById('brush-size').value = brushSize;
-              document.getElementById('brush-size-label').textContent = brushSize; break;
-    case 'S': if (!autoSync) { e.preventDefault(); sendToPlayer(); } break;
-    case 'R': toggleRulerShareToPlayers(); break;        // Shift+R: mostrar/ocultar régua aos jogadores
-    case ' ': e.preventDefault(); sendToPlayer(); break;
-    case '?': if (!isPlayer) toggleLegend(); break;
+    } else if (selectedPolygonId != null) {
+      deleteSelectedPolygon();
+    }
+    return;
+  }
+  if (e.key === 'Escape') {
+    if (legendVisible) { toggleLegend(); return; }
+    if (activePolygon) { activePolygon = null; drawCursor(null, null); }
+    else if (selectedVertexIndex >= 0) { selectedVertexIndex = -1; drawCursor(lastScreenX, lastScreenY); }
+    else if (selectedPolygonId != null) { selectedPolygonId = null; drawCursor(null, null); }
+    return;
+  }
+  if (e.key === '[') {
+    brushSize = Math.max(5, brushSize - 10);
+    document.getElementById('brush-size').value = brushSize;
+    document.getElementById('brush-size-label').textContent = brushSize;
+    return;
+  }
+  if (e.key === ']') {
+    brushSize = Math.min(300, brushSize + 10);
+    document.getElementById('brush-size').value = brushSize;
+    document.getElementById('brush-size-label').textContent = brushSize;
+    return;
+  }
+
+  // ── Configurable action shortcuts ──
+  const act = (typeof shortcutMatchAction === 'function') ? shortcutMatchAction(e) : null;
+  if (!act) return;
+  switch (act) {
+    case 'tool-select':   setShape('select'); break;
+    case 'tool-brush':    setShape('brush');  break;
+    case 'tool-rect':     setShape('rect');   break;
+    case 'tool-circle':   setShape('circle'); break;
+    case 'tool-poly':     setShape('poly');   break;
+    case 'reveal-shroud': document.getElementById(tool === 'shroud' ? 'btn-reveal' : 'btn-shroud').click(); break;
+    case 'ruler':         toggleRulerMode(); break;
+    case 'token':         toggleTokenMode(); break;
+    case 'aoe':           toggleAoeMode(); break;
+    case 'draw':          toggleDrawMode(); break;
+    case 'grid':          document.getElementById('btn-grid').click(); break;
+    case 'snap':          document.getElementById('btn-snap').click(); break;
+    case 'fit':           if (mapOffscreen) { fitToScreen(); viewportDirty = true; scheduleRender(); } break;
+    case 'undo':          e.preventDefault(); undo(); break;
+    case 'redo':          e.preventDefault(); redo(); break;
+    case 'go-live':       e.preventDefault(); sendToPlayer(); break;
+    case 'go-live-manual': if (!autoSync) { e.preventDefault(); sendToPlayer(); } break;
+    case 'ruler-share':   toggleRulerShareToPlayers(); break;
+    case 'blackout':      e.preventDefault(); blackoutToggle(); break;
+    case 'legend':        toggleLegend(); break;
   }
 });
 

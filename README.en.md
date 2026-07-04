@@ -94,7 +94,7 @@ The installed **Windows (NSIS installer)** and **Linux (AppImage)** builds check
 
 ## Shortcuts
 
-Every main GM action is **one gesture**. Press `?` in the master window to open this list.
+Every main GM action is **one gesture**. Press `?` in the master window to open this list — and **every shortcut is customizable**: click **✎ Edit** in the legend and press whatever key you want.
 
 | Key | Action |
 |-------|------|

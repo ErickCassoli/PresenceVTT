@@ -105,7 +105,7 @@ As versões instaladas do **Windows (instalador NSIS)** e do **Linux (AppImage)*
 
 ## Atalhos
 
-Toda ação principal do mestre é **um gesto**. Aperte `?` na janela do mestre pra abrir esta lista.
+Toda ação principal do mestre é **um gesto**. Aperte `?` na janela do mestre pra abrir esta lista — e **todos os atalhos são personalizáveis**: clique em **✎ Editar** na legenda e pressione a tecla que você quiser.
 
 | Tecla | Ação |
 |-------|------|
