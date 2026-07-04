@@ -57,6 +57,32 @@
   }
   function setOutputVolume(master, muted) { if (typeof Howler !== 'undefined') { Howler.volume(master != null ? master : 0.9); Howler.mute(!!muted); } }
 
+  // ── Physical audio output device (setSinkId) ─────────────────────────────────
+  // The soundboard is the only audio in the app, and Howler runs in html5 mode, so
+  // routing to a chosen device means calling setSinkId on each Howl's <audio> node.
+  // The picked deviceId is owned here (persisted) and driven by Config → topbar.js.
+  const SINK_LS = 'presencevtt-audio-sink';
+  let audioSinkId = '';
+  try { audioSinkId = localStorage.getItem(SINK_LS) || ''; } catch (e) {}
+
+  function applyAudioSink() {
+    if (typeof Howler === 'undefined' || !Array.isArray(Howler._howls)) return;
+    const id = audioSinkId || 'default';
+    Howler._howls.forEach(function (h) {
+      (h._sounds || []).forEach(function (s) {
+        const node = s && s._node;
+        if (node && typeof node.setSinkId === 'function') node.setSinkId(id).catch(function () {});
+      });
+    });
+  }
+
+  window.sbGetAudioSink = function () { return audioSinkId; };
+  window.sbSetAudioSink = function (id) {
+    audioSinkId = id || '';
+    try { localStorage.setItem(SINK_LS, audioSinkId); } catch (e) {}
+    applyAudioSink();
+  };
+
   async function engPlayAmbient(pad, bytes) {
     const dur = cfg.crossfadeMs || 1500;
     const prev = engAmbient;
@@ -65,6 +91,7 @@
     const target = (pad.volume != null ? pad.volume : 0.9);
     e.howl.volume(0);
     const id = e.howl.play(); e.sid = id;
+    applyAudioSink();
     e.howl.fade(0, target, dur, id);
     engAmbient = pad.id;
     if (prev && prev !== pad.id && howls[prev]) {
@@ -76,7 +103,7 @@
     const cur = engAmbient; engAmbient = null;
     if (cur && howls[cur]) { const p = howls[cur]; const dur = cfg.crossfadeMs || 1500; try { const v = p.howl.volume(); p.howl.fade(typeof v === 'number' ? v : 0.9, 0, dur, p.sid); const sid = p.sid; setTimeout(() => { try { p.howl.stop(sid); } catch (e) {} }, dur + 60); } catch (e) {} }
   }
-  async function engOneShot(pad, bytes) { const e = await ensureHowl(pad, bytes); if (!e) return; e.howl.loop(false); const id = e.howl.play(); e.howl.volume(pad.volume != null ? pad.volume : 0.9, id); }
+  async function engOneShot(pad, bytes) { const e = await ensureHowl(pad, bytes); if (!e) return; e.howl.loop(false); const id = e.howl.play(); applyAudioSink(); e.howl.volume(pad.volume != null ? pad.volume : 0.9, id); }
   function engPanic() { for (const k in howls) { try { howls[k].howl.stop(); } catch (e) {} } engAmbient = null; }
   function engExec(cmd, pad, bytes) { if (cmd === 'ambient') engPlayAmbient(pad, bytes); else if (cmd === 'stopAmbient') engStopAmbient(); else if (cmd === 'oneshot') engOneShot(pad, bytes); else if (cmd === 'panic') engPanic(); }
 

@@ -57,7 +57,7 @@
     flex-direction: column;
     align-items: flex-end;
     justify-content: flex-start;
-    padding: 12px 12px 0 0;
+    padding: calc(12px + var(--titlebar-h, 0px)) 12px 0 0;
     pointer-events: none;
     gap: 6px;
   }
@@ -544,19 +544,6 @@
   body.player-mode #ui-scale-row { display: none !important; }
   #ui-scale-row span { font-size: 11px; color: #a090c0; white-space: nowrap; }
   #ui-scale-row input[type="range"] { width: 80px; cursor: pointer; accent-color: #8060e0; }
-  #btn-legend {
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    border: 1px solid rgba(140, 110, 240, 0.45);
-    background: rgba(80, 60, 160, 0.35);
-    color: #c0b8e8;
-    font-size: 12px; font-weight: 700;
-    cursor: pointer; padding: 0; flex-shrink: 0;
-    transition: background 0.14s, color 0.14s;
-    font-family: system-ui, sans-serif;
-    line-height: 1;
-  }
-  #btn-legend:hover { background: rgba(120, 80, 210, 0.55); color: #fff; }
 
   /* BRUSH SIZE PANEL (bottom-left, context) */
   #panel-brush {
@@ -1191,34 +1178,110 @@
   }
   #update-toast button.ghost { background: transparent; color: var(--text, #eee); border-color: var(--border, rgba(255,255,255,0.2)); }
 
-  /* ===== LANGUAGE SWITCH (master window only) ===== */
-  #lang-switch {
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    z-index: 12000;
+  /* ===== CUSTOM TITLEBAR (frameless DM window; hidden in projection) ===== */
+  :root { --titlebar-h: 40px; }
+  #app-titlebar {
+    flex: 0 0 var(--titlebar-h);
+    height: var(--titlebar-h);
     display: flex;
-    gap: 2px;
+    align-items: stretch;
+    background: linear-gradient(180deg, rgba(24, 15, 44, 0.98), rgba(13, 10, 24, 0.98));
+    border-bottom: 1px solid rgba(150, 100, 255, 0.16);
+    z-index: 13000;
+    -webkit-app-region: drag; /* draggable window region */
+  }
+  body.player-mode #app-titlebar { display: none !important; }
+  body.player-mode { --titlebar-h: 0px; } /* projection has no titlebar → no top offset */
+  #app-titlebar .tb-brand {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 14px; color: var(--text);
+  }
+  #app-titlebar .tb-mark { width: 18px; height: 18px; color: var(--accent); display: block; }
+  #app-titlebar .tb-title { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; }
+  #app-titlebar .tb-title .tb-vtt { color: var(--accent); }
+  #app-titlebar .tb-spacer { flex: 1; }
+  #app-titlebar .tb-actions { display: flex; align-items: center; gap: 4px; padding: 0 8px; -webkit-app-region: no-drag; }
+  #app-titlebar .tb-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 28px; padding: 0 12px; border-radius: 8px;
+    border: 1px solid transparent; background: transparent;
+    color: var(--muted); font: 500 12px system-ui, "Segoe UI", sans-serif;
+    cursor: pointer;
+  }
+  #app-titlebar .tb-btn:hover { background: rgba(120, 90, 235, 0.18); color: var(--text); }
+  #app-titlebar .tb-btn.active { background: rgba(120, 90, 235, 0.28); color: var(--text); border-color: rgba(150, 100, 255, 0.35); }
+  #app-titlebar .tb-btn svg { width: 15px; height: 15px; }
+
+  /* Window controls (min / maximize / close) */
+  #app-titlebar .tb-window-controls { display: flex; -webkit-app-region: no-drag; }
+  #app-titlebar .tb-wc {
+    width: 46px; height: var(--titlebar-h);
+    border: none; background: transparent;
+    color: var(--muted); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  #app-titlebar .tb-wc svg { width: 11px; height: 11px; }
+  #app-titlebar .tb-wc:hover { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+  #app-titlebar .tb-wc.tb-close:hover { background: #c0392b; color: #fff; }
+
+  /* ===== CONFIG MENU (dropdown from the titlebar) ===== */
+  #tb-config-wrap { position: relative; -webkit-app-region: no-drag; }
+  #config-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 264px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 13010;
+  }
+  #config-menu[hidden] { display: none; }
+  #config-menu .cfg-section { padding: 8px 6px; }
+  #config-menu .cfg-section + .cfg-section { border-top: 1px solid var(--border); }
+  #config-menu .cfg-label { font-size: 11px; color: var(--muted); margin-bottom: 7px; letter-spacing: 0.03em; }
+  #config-menu .cfg-item {
+    width: 100%; text-align: left;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 9px; border-radius: 9px;
+    border: 1px solid var(--border); background: var(--surface-2);
+    color: var(--text); font-size: 12.5px; cursor: pointer;
+  }
+  #config-menu .cfg-item:hover { border-color: var(--accent); color: var(--accent); }
+  #config-menu select#cfg-audio-device {
+    width: 100%; padding: 7px 8px; border-radius: 9px;
+    border: 1px solid var(--border); background: var(--surface-2);
+    color: var(--text); font-size: 12px; cursor: pointer;
+  }
+  #config-menu .cfg-msg { font-size: 11px; color: var(--muted); margin-top: 7px; min-height: 0; }
+  #config-menu .cfg-msg:empty { display: none; }
+
+  /* Language switch — now lives inside the Config menu */
+  #lang-switch {
+    display: flex;
+    gap: 3px;
     padding: 3px;
-    border-radius: 8px;
-    background: var(--surface, rgba(30, 24, 54, 0.9));
-    border: 1px solid var(--border, rgba(255,255,255,0.14));
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
-    zoom: var(--ui-zoom, 1);
+    border-radius: 9px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
   }
   #lang-switch button {
+    flex: 1;
     border: none;
     background: transparent;
-    color: var(--text-dim, #b9b4d0);
-    border-radius: 6px;
-    padding: 3px 9px;
+    color: var(--muted);
+    border-radius: 7px;
+    padding: 5px 9px;
     font: 700 11px system-ui, "Segoe UI", sans-serif;
     letter-spacing: 0.04em;
     cursor: pointer;
   }
-  #lang-switch button:hover { color: var(--text, #fff); }
-  #lang-switch button.active { background: var(--accent, #7c5cff); color: #fff; }
-  .player-mode #lang-switch { display: none !important; }
+  #lang-switch button:hover { color: var(--text); }
+  #lang-switch button.active { background: var(--accent); color: var(--on-accent); }
+
+  /* Push the top-left Regras launcher below the titlebar (rules.js sets top:12px). */
+  #rules-anchor { top: calc(12px + var(--titlebar-h, 0px)) !important; }
 
   /* ===== MAP PROGRESS OVERLAY ===== */
   #map-progress {
@@ -1361,11 +1424,9 @@
     box-shadow: 0 0 0 1px rgba(255, 90, 90, 0.45) !important;
   }
 
-  /* UI scale row + legend button surfaces */
+  /* UI scale row surface */
   #ui-scale-row { background: var(--surface); border: 1px solid var(--border); }
   #ui-scale-row span { color: var(--muted); }
-  #btn-legend { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
-  #btn-legend:hover { background: var(--surface-2); color: var(--accent); }
 
   /* Help legend (the "?" shortcut list) */
   #shortcut-legend .legend-title, #shortcut-legend .legend-cat { color: var(--accent); }
@@ -1398,6 +1459,65 @@
 </head>
 <body>
 <script>if (new URLSearchParams(location.search).get('mode') === 'player') document.body.classList.add('player-mode');</script>
+
+<!-- CUSTOM TITLEBAR (frameless DM window; hidden in projection). Wired by topbar.js. -->
+<div id="app-titlebar">
+  <div class="tb-brand">
+    <svg class="tb-mark" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+      <circle cx="50" cy="50" r="34" stroke="currentColor" stroke-width="6" opacity="0.4"/>
+      <circle cx="50" cy="50" r="20" stroke="currentColor" stroke-width="7"/>
+      <circle cx="50" cy="50" r="6.5" fill="currentColor"/>
+    </svg>
+    <span class="tb-title">presence<span class="tb-vtt">VTT</span></span>
+  </div>
+  <div class="tb-spacer"></div>
+  <div class="tb-actions">
+    <button id="btn-legend" class="tb-btn" title="Ajuda / Atalhos de teclado (?)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12" y2="17"/></svg>
+      Ajuda
+    </button>
+    <div id="tb-config-wrap">
+      <button id="btn-config" class="tb-btn" title="Configurações">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Config
+      </button>
+
+      <!-- Config dropdown -->
+      <div id="config-menu" class="glass-panel" hidden>
+        <div class="cfg-section">
+          <div class="cfg-label">Idioma / Language</div>
+          <!-- Language switch (wired by i18n.js via #lang-switch + [data-lang]) -->
+          <div id="lang-switch" title="Idioma / Language">
+            <button data-lang="pt">PT</button>
+            <button data-lang="en">EN</button>
+          </div>
+        </div>
+        <div class="cfg-section">
+          <div class="cfg-label">Dispositivo de áudio (soundboard)</div>
+          <select id="cfg-audio-device" title="Saída de áudio do soundboard"></select>
+        </div>
+        <div class="cfg-section">
+          <button id="cfg-shortcuts" class="cfg-item">⌨ Configurações de atalho…</button>
+        </div>
+        <div class="cfg-section">
+          <button id="cfg-check-updates" class="cfg-item">⟳ Verificar atualizações</button>
+          <div id="cfg-update-msg" class="cfg-msg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="tb-window-controls">
+    <button id="tb-min" class="tb-wc" title="Minimizar">
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3"><line x1="2" y1="6" x2="10" y2="6"/></svg>
+    </button>
+    <button id="tb-max" class="tb-wc" title="Maximizar">
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2.5" y="2.5" width="7" height="7"/></svg>
+    </button>
+    <button id="tb-close" class="tb-wc tb-close" title="Fechar">
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg>
+    </button>
+  </div>
+</div>
 
 <!-- TOOLS WRAPPER (bottom-center, stacks brush panel above toolbar) -->
 <div id="tools-wrapper">
@@ -1707,7 +1827,6 @@
 
 <!-- UI SCALE CONTROL — outside sidebar so it isn't affected by the zoom it controls -->
 <div id="ui-scale-row">
-  <button id="btn-legend" title="Atalhos de teclado (?)">?</button>
   <span>⚙ Escala</span>
   <input type="range" id="ui-scale" min="75" max="175" value="120" title="Escala da interface">
 </div>
@@ -1771,12 +1890,6 @@
 <!-- Blackout (PresenceVTT): opaque cover shown ONLY on the projection; the DM shows the badge instead. -->
 <div id="blackout"></div>
 <div id="blackout-indicator">⬛ BLACKOUT ATIVO</div>
-
-<!-- Language switch (master window only; wired by i18n.js) -->
-<div id="lang-switch" title="Idioma / Language">
-  <button data-lang="pt">PT</button>
-  <button data-lang="en">EN</button>
-</div>
 
 <!-- Auto-update toast (master window only; driven by electronAPI.onUpdateStatus) -->
 <div id="update-toast">
@@ -4286,34 +4399,11 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// ── Auto-update toast (master window only) ──────────────────────────────────────
-if (!isPlayer && window.electronAPI && electronAPI.onUpdateStatus) {
-  const upToast = document.getElementById('update-toast');
-  const upMsg   = document.getElementById('update-toast-msg');
-  const upBtn   = document.getElementById('update-toast-btn');
-  const upDismiss = document.getElementById('update-toast-dismiss');
-  upBtn.onclick = () => electronAPI.installUpdate();
-  upDismiss.onclick = () => upToast.classList.remove('on');
-  electronAPI.onUpdateStatus(d => {
-    if (!d) return;
-    const ver = d.version ? ' ' + d.version : '';
-    if (d.status === 'available') {
-      upMsg.textContent = updT('Baixando atualização') + ver + '…';
-      upBtn.style.display = 'none'; upToast.classList.add('on');
-    } else if (d.status === 'downloading') {
-      upMsg.textContent = updT('Baixando atualização') + '… ' + (d.percent || 0) + '%';
-      upBtn.style.display = 'none'; upToast.classList.add('on');
-    } else if (d.status === 'ready') {
-      upMsg.textContent = updT('Atualização pronta') + ver + '.';
-      upBtn.style.display = ''; upToast.classList.add('on');
-    }
-  });
-}
-// Tiny translator shim: uses i18n's t() (source-string → EN) when present, else the PT source.
-function updT(src) { return (typeof t === 'function') ? t(src) : src; }
+// Auto-update toast + Config menu (titlebar) are wired in topbar.js.
 
 if (!isPlayer) initScenes().catch(console.error);
 </script>
 <script src="i18n.js"></script>
+<script src="topbar.js"></script>
 </body>
 </html>
