@@ -1,5 +1,7 @@
 # presenceVTT
 
+***Português** · [English](README.en.md)*
+
 **Apresentador de mapas com _fog of war_ para RPG de mesa presencial.**
 
 Põe o mapa numa TV/projetor e deixa você revelar o cenário ao vivo de uma segunda tela — o mestre controla, os jogadores só veem o que você quiser.
@@ -34,9 +36,9 @@ Mapas animados (MP4/WebM), grid quadrado ou hex ajustável, e várias cenas com 
 > **Dica:** aperte `?` na janela do mestre pra ver todos os atalhos.
 
 ### Tokens pra trackear as minis
-Marque no mapa onde cada mini está: tokens-âncora com **cor, nome e atalho** pra alinhar no
-grid, **condições** (ícones que os players enxergam) e **bandas de range** — tudo espelhado na
-projeção. É rastreio visual, não uma ficha.
+Marque no mapa onde cada mini está: tokens-âncora com **cor, nome e retrato PNG/JPG** pra
+alinhar no grid, **condições** (ícones que os players enxergam) e **bandas de range** — tudo
+espelhado na projeção. É rastreio visual, não uma ficha.
 
 ### Áreas (AoE)
 Burst, cone, linha e emanação medidos em **células**: arraste pra criar, e depois **mova e
@@ -63,6 +65,10 @@ com atalhos, volume por pad, **botão de pânico** e opção de tocar o som **pe
 ### Perfil portátil
 Exporte **cenas + sons + sistemas** num único arquivo `.zip` e leve sua mesa montada pra
 outro PC ou compartilhe com outro mestre.
+
+### Dois idiomas
+A interface toda está disponível em **português e inglês**, com troca num clique pelo botão
+**PT / EN** no canto superior esquerdo. Começa no idioma do seu navegador/SO e lembra a escolha.
 
 ## Rodando do código-fonte
 
@@ -91,7 +97,11 @@ O resultado sai na pasta **`dist/`**:
 
 O app **não é assinado** (certificado custa dinheiro), então na 1ª vez o sistema mostra um aviso de segurança: no Windows, "Mais informações" → "Executar assim mesmo".
 
-> O *build* baixa ferramentas do electron-builder na primeira vez (precisa de internet **só pra buildar**). O app **em si** não usa rede nenhuma em runtime.
+> O *build* baixa ferramentas do electron-builder na primeira vez (precisa de internet **só pra buildar**). O app **em si** não usa rede nenhuma em runtime, exceto a checagem de atualização abaixo.
+
+## Atualizações
+
+As versões instaladas do **Windows (instalador NSIS)** e do **Linux (AppImage)** checam por uma nova release no GitHub ao abrir, baixam em segundo plano e oferecem um botão **Reiniciar e atualizar** na janela do mestre. O **portátil** do Windows e o macOS não-assinado não se auto-atualizam — nesses casos, baixe de novo na página de [Releases](https://github.com/ErickCassoli/PresenceVTT/releases).
 
 ## Atalhos
 
@@ -99,17 +109,15 @@ Toda ação principal do mestre é **um gesto**. Aperte `?` na janela do mestre 
 
 | Tecla | Ação |
 |-------|------|
-| `R` | **Régua** (liga/desliga) — mede em células do grid |
+| `1` `2` `3` `4` `5` | **Selecionar/Mover · Pincel · Retângulo · Círculo · Polígono** (as letras `V`/`E`/`C`/`P` continuam valendo) |
+| `S` | Alterna **Revelar / Ocultar** |
+| `R` | **Régua** — mede em células do grid · `T` **Token** |
 | `Shift + R` | **Mostrar a régua aos jogadores** (liga/desliga) |
 | `B` | **Blackout** — apaga a projeção na hora (o mestre continua vendo) |
-| `Espaço` | **Ir ao vivo** — mostra o estado atual na projeção |
-| `Shift + S` | Ir ao vivo no modo manual |
-| `G` | Grid liga/desliga · `A` animação do fog · `S` ocultar · `N` grudar no grid |
-| `E` / `P` / `C` / `V` | Retângulo · Polígono · Círculo · Selecionar/Mover |
+| `Espaço` | **Ir ao vivo** — mostra o estado atual na projeção · `Shift + S` ir ao vivo no modo manual |
+| `G` | Grid liga/desliga · `A` animação do fog · `N` grudar no grid |
 | `F` | Ajustar à tela (na projeção: tela cheia) · `[` `]` tamanho do pincel · `Ctrl Z/Y` desfazer/refazer |
 | **Cenas** (barra) | Abrir / trocar o mapa |
-
-*Pincel e Revelar ficam no botão da barra (suas teclas `B`/`R` agora são Blackout/Régua).*
 
 ## Limites conhecidos
 
